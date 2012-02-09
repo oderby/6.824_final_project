@@ -4,6 +4,7 @@
 #ifndef lock_server_h
 #define lock_server_h
 
+#include <map>
 #include <string>
 #include "lock_protocol.h"
 #include "lock_client.h"
@@ -13,18 +14,14 @@ class lock_server {
 
  protected:
   int nacquire;
+  std::map<lock_protocol::lockid_t, bool> lock_status;
 
  public:
   lock_server();
   ~lock_server() {};
   lock_protocol::status stat(int clt, lock_protocol::lockid_t lid, int &);
+  lock_protocol::status acquire(int clt, lock_protocol::lockid_t lid, int &);
+  lock_protocol::status release(int clt, lock_protocol::lockid_t lid, int &);
 };
 
-#endif 
-
-
-
-
-
-
-
+#endif
