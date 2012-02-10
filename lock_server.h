@@ -5,6 +5,7 @@
 #define lock_server_h
 
 #include <map>
+#include <pthread.h>
 #include <string>
 #include "lock_protocol.h"
 #include "lock_client.h"
@@ -14,7 +15,9 @@ class lock_server {
 
  protected:
   int nacquire;
-  std::map<lock_protocol::lockid_t, bool> lock_status;
+  std::map<lock_protocol::lockid_t, bool> lock_status_;
+  pthread_mutex_t m_;
+  pthread_cond_t wait_unlock_;
 
  public:
   lock_server();
