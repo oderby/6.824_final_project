@@ -13,6 +13,12 @@ lock_server::lock_server():
   VERIFY(pthread_cond_init(&wait_unlock_, 0) == 0);
 }
 
+lock_server::~lock_server()
+{
+  VERIFY(pthread_mutex_destroy(&m_) == 0);
+  VERIFY(pthread_cond_destroy(&wait_unlock_) == 0);
+}
+
 lock_protocol::status
 lock_server::stat(int clt, lock_protocol::lockid_t lid, int &r)
 {
