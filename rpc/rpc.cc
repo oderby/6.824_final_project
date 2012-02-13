@@ -660,21 +660,39 @@ rpcs::rpcstate_t
 rpcs::checkduplicate_and_update(unsigned int clt_nonce, unsigned int xid,
 		unsigned int xid_rep, char **b, int *sz)
 {
-	ScopedLock rwl(&reply_window_m_);
+        ScopedLock rwl(&reply_window_m_);
+        VERIFY(xid_rep < xid);
         std::list<reply_t>::iterator it = reply_window_[clt_nonce].begin();
+        //printf("checkdup: xid=%d, xid_rep=%d\n",xid, xid_rep);
+
         if (reply_window_[clt_nonce].size() == 0) {
-          goto newrep;
+          highest_xid_rep_[clt_nonce] = xid_rep;
+          reply_t *rep = new reply_t(xid);
+          reply_window_[clt_nonce].push_back(*rep);
         }
-        if (xid < it->xid) {
+        // track the highest xid rep client has seen
+        // Specifically fixes bug where lost packet finally arrives with new
+        // xid, but the highest xid rep seen before is new_xid-1
+        if (xid_rep > highest_xid_rep_[clt_nonce]) {
+          highest_xid_rep_[clt_nonce] = xid_rep;
+        }
+
+        if (xid < highest_xid_rep_[clt_nonce]) {
           return FORGOTTEN;
         }
         while (it!=reply_window_[clt_nonce].end() && it->xid < xid) {
-          it++;
+          if (it->xid <= xid_rep) {
+            //need to remove old entries
+            free((*it).buf);
+            it = reply_window_[clt_nonce].erase(it);
+          } else {
+            it++;
+          }
         }
 
         if (it->xid > xid || it == reply_window_[clt_nonce].end()) { //NEW
-          newrep:
-          // create the reply structure to insert
+          // initialize a reply structure to indicate that we are processing
+          // this request.
           reply_t *rep = new reply_t(xid);
           if (it == reply_window_[clt_nonce].end()) {
             reply_window_[clt_nonce].push_back(*rep);
@@ -692,6 +710,8 @@ rpcs::checkduplicate_and_update(unsigned int clt_nonce, unsigned int xid,
             return INPROGRESS;
           }
         }
+          // should never get here!
+          VERIFY(0);
 }
 
 // rpcs::dispatch calls add_reply when it is sending a reply to an RPC,
