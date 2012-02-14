@@ -35,12 +35,8 @@ lock_server::acquire(int clt, lock_protocol::lockid_t lid, int &r)
   printf("acquire request from clt %d\n", clt);
   r = nacquire;
   VERIFY(pthread_mutex_lock(&m_)==0);
-  while (1) {
-    if (lock_status_[lid]) {
-      VERIFY(pthread_cond_wait(&wait_unlock_, &m_) == 0);
-    } else {
-      break;
-    }
+  while (lock_status_[lid]) {
+    VERIFY(pthread_cond_wait(&wait_unlock_, &m_) == 0);
   }
   lock_status_[lid] = true;
   VERIFY(pthread_mutex_unlock(&m_)==0);
@@ -53,7 +49,9 @@ lock_server::release(int clt, lock_protocol::lockid_t lid, int &r)
   lock_protocol::status ret = lock_protocol::OK;
   printf("release request from clt %d\n", clt);
   r = nacquire;
+  VERIFY(pthread_mutex_lock(&m_)==0);
   lock_status_[lid] = false;
   VERIFY(pthread_cond_signal(&wait_unlock_)==0);
+  VERIFY(pthread_mutex_unlock(&m_)==0);
   return ret;
 }
