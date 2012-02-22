@@ -5,9 +5,19 @@
 
 #include <string>
 #include <map>
+#include <pthread.h>
+#include <time.h>
 #include "extent_protocol.h"
 
 class extent_server {
+  struct finfo {
+    std::string name;
+    extent_protocol::attr a;
+  };
+
+  std::map<extent_protocol::extentid_t, finfo> table_;
+  // table lock
+  pthread_mutex_t m_;
 
  public:
   extent_server();
@@ -18,11 +28,4 @@ class extent_server {
   int remove(extent_protocol::extentid_t id, int &);
 };
 
-#endif 
-
-
-
-
-
-
-
+#endif
