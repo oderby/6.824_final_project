@@ -8,6 +8,7 @@
 #include <pthread.h>
 #include <time.h>
 #include "extent_protocol.h"
+#include "lang/verify.h"
 
 class extent_server {
   struct finfo {

@@ -2,9 +2,10 @@
 #define yfs_client_h
 
 #include <string>
-//#include "yfs_protocol.h"
-#include "extent_client.h"
 #include <vector>
+//#include "yfs_protocol.h"
+#include "lang/verify.h"
+#include "extent_client.h"
 
 class yfs_client {
   extent_client *ec;
@@ -31,17 +32,20 @@ class yfs_client {
   };
 
  private:
-  static std::string filename(inum);
-  static inum n2i(std::string);
+  static status ext2yfs(extent_protocol::status);
  public:
 
   yfs_client(std::string, std::string);
 
+  static std::string filename(inum);
+  static inum n2i(std::string);
   bool isfile(inum);
   bool isdir(inum);
 
   int getfile(inum, fileinfo &);
   int getdir(inum, dirinfo &);
+
+  status create(inum, const char*, inum &);
 };
 
 // simple class to provide nice ways of modifying directory strings
@@ -60,7 +64,7 @@ class yfs_dir {
   std::string to_string(void);
   void add(yfs_client::dirent);
   void rem(std::string);
-
+  bool exists(std::string);
 };
 
 #endif

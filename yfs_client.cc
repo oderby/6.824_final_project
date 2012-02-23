@@ -16,7 +16,7 @@ yfs_client::yfs_client(std::string extent_dst, std::string lock_dst)
   // "create" root directory with inum 0x1
   yfs_dir* dir = new yfs_dir("lala 2:po 3:tree 32124:");
   dir->rem("tree");
-  yfs_client::dirent d;
+  dirent d;
   d.name = "tester";
   d.inum = 12453;
   dir->add(d);
@@ -46,6 +46,18 @@ yfs_client::filename(inum inum)
   return ost.str();
 }
 
+yfs_client::status
+yfs_client::ext2yfs(extent_protocol::status r) {
+  if (r == extent_protocol::OK) {
+    return yfs_client::OK;
+  } else if (r == extent_protocol::NOENT) {
+    return yfs_client::NOENT;
+  } else if (r == extent_protocol::RPCERR) {
+    return yfs_client::RPCERR;
+  }
+  return yfs_client::IOERR;
+}
+
 bool
 yfs_client::isfile(inum inum)
 {
@@ -63,43 +75,78 @@ yfs_client::isdir(inum inum)
 int
 yfs_client::getfile(inum inum, fileinfo &fin)
 {
-  int r = OK;
-
   printf("getfile %016llx\n", inum);
   extent_protocol::attr a;
-  if (ec->getattr(inum, a) != extent_protocol::OK) {
-    r = IOERR;
-    goto release;
+  status ret = ext2yfs(ec->getattr(inum, a));
+
+  if (ret == OK) {
+    fin.atime = a.atime;
+    fin.mtime = a.mtime;
+    fin.ctime = a.ctime;
+    fin.size = a.size;
+    printf("getfile %016llx -> sz %llu\n", inum, fin.size);
   }
-
-  fin.atime = a.atime;
-  fin.mtime = a.mtime;
-  fin.ctime = a.ctime;
-  fin.size = a.size;
-  printf("getfile %016llx -> sz %llu\n", inum, fin.size);
-
- release:
-
-  return r;
+  return ret;
 }
 
 int
 yfs_client::getdir(inum inum, dirinfo &din)
 {
-  int r = OK;
-
   printf("getdir %016llx\n", inum);
   extent_protocol::attr a;
-  if (ec->getattr(inum, a) != extent_protocol::OK) {
-    r = IOERR;
-    goto release;
-  }
-  din.atime = a.atime;
-  din.mtime = a.mtime;
-  din.ctime = a.ctime;
+  status ret = ext2yfs(ec->getattr(inum, a));
 
- release:
-  return r;
+  if (ret == OK) {
+    din.atime = a.atime;
+    din.mtime = a.mtime;
+    din.ctime = a.ctime;
+  }
+
+  return ret;
+}
+
+// - If a file named @name already exists in @parent, return EXIST.
+// - Pick an ino (with type of yfs_client::inum) for file @name.
+//   Make sure ino indicates a file, not a directory!
+// - Create an empty extent for ino.
+// - Add a <name, ino> entry into @parent.
+yfs_client::status
+yfs_client::create(inum p_ino, const char* name, inum& new_ino)
+{
+  // make sure parent directory exists
+  std::string p_dir_str;
+  status ret = ext2yfs(ec->get(p_ino, p_dir_str));
+  if (ret != OK) {
+    return ret;
+  }
+  yfs_dir p_dir(p_dir_str);
+  dirent d;
+  // ensure we don't already have a file with the same name in this directory
+  d.name = std::string(name);
+  if (p_dir.exists(d.name)) {
+    return EXIST;
+  }
+
+  // generate a inum for new file
+  // TODO: since this is done randomly, we really should try until we succeed
+  new_ino = (rand() & 0xFFFF) | 0x80000000;
+  //printf("new_ino: %s %llX\n", filename(new_ino).c_str(), new_ino);
+  d.inum = new_ino;
+
+  // create empty extent for new file
+  ret = ext2yfs(ec->put(new_ino, ""));
+  if (ret != OK) {
+    return ret;
+  }
+
+  // add new file to parent directory
+  p_dir.add(d);
+  ret = ext2yfs(ec->put(p_ino, p_dir.to_string()));
+  if (ret != OK) {
+    return ret;
+  }
+
+  return OK;
 }
 
 // parse string of directory content
@@ -124,11 +171,11 @@ yfs_dir::yfs_dir(std::string dir){
 // parse string of dirent tuple
 yfs_client::dirent
 yfs_dir::extract_dirent(std::string str) {
-  printf("told to extract dir entry from %s\n", str.c_str());
+  //printf("told to extract dir entry from %s\n", str.c_str());
   size_t found = str.find(" ");
   yfs_client::dirent dir;
   dir.name = str.substr(0,found);
-  dir.inum = atoi(str.substr(found).c_str());
+  dir.inum = yfs_client::n2i(str.substr(found).c_str());
   return dir;
 }
 
@@ -140,13 +187,10 @@ yfs_dir::to_string(void) {
     str_out = std::string(":");
   } else {
     std::map<std::string, yfs_client::inum>::iterator it;
-    char buffer[50];
-    int n;
     for (it = dir_.begin(); it!= dir_.end(); it++) {
       str_out += it->first;
       str_out += " ";
-      n = sprintf(buffer,"%lld",it->second);
-      str_out += buffer;
+      str_out += yfs_client::filename(it->second);
       str_out += ":";
     }
   }
@@ -160,4 +204,9 @@ yfs_dir::add(yfs_client::dirent dir) {
 
 void yfs_dir::rem(std::string name) {
   dir_.erase(name);
+}
+
+bool
+yfs_dir::exists(std::string name) {
+  return dir_.count(name)==1;
 }
