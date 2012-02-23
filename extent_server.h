@@ -11,7 +11,7 @@
 
 class extent_server {
   struct finfo {
-    std::string name;
+    std::string buf;
     extent_protocol::attr a;
   };
 

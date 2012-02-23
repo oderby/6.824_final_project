@@ -6,7 +6,6 @@
 #include "extent_client.h"
 #include <vector>
 
-
 class yfs_client {
   extent_client *ec;
  public:
@@ -45,4 +44,23 @@ class yfs_client {
   int getdir(inum, dirinfo &);
 };
 
-#endif 
+// simple class to provide nice ways of modifying directory strings
+
+class yfs_dir {
+  std::map<std::string, yfs_client::inum> dir_;
+
+  yfs_client::dirent extract_dirent(std::string);
+
+ public:
+
+  yfs_dir(void) {};
+
+  yfs_dir(std::string);
+
+  std::string to_string(void);
+  void add(yfs_client::dirent);
+  void rem(std::string);
+
+};
+
+#endif
