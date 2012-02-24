@@ -186,6 +186,88 @@ yfs_client::getdir_contents(inum ino, yfs_dir** dir)
   return ret;
 }
 
+yfs_client::status
+yfs_client::setattr(inum ino, unsigned int new_size)
+{
+  printf("yfs_client::setattr %s->%u\n",yfs_client::filename(ino).c_str(), new_size);
+  std::string f_data;
+  status ret = ext2yfs(ec->get(ino, f_data));
+  if (ret != OK) {
+    return ret;
+  }
+
+  fileinfo fin;
+  ret = getfile(ino, fin);
+  if (ret != OK) {
+    return ret;
+  }
+
+  if (new_size == 0) {
+    ret = ext2yfs(ec->put(ino, ""));
+  } else if (new_size < fin.size) {
+    // shrink data
+    ret = ext2yfs(ec->put(ino, f_data.substr(0,new_size)));
+  } else if (new_size > fin.size) {
+    // pad data out to larger size
+    unsigned int extra = new_size-fin.size;
+    while (extra > 0) {
+      f_data+='\0';
+    }
+    ret = ext2yfs(ec->put(ino, f_data));
+  }
+  return ret;
+}
+
+yfs_client::status
+yfs_client::read(inum ino, unsigned int off, unsigned int size, std::string & buf)
+{
+  printf("yfs_client::read %u %u %s\n",off, size, yfs_client::filename(ino).c_str());
+  std::string f_data;
+  status ret = ext2yfs(ec->get(ino, f_data));
+  if (ret != OK) {
+    return ret;
+  }
+  // if @off is as big as file, read zero bytes
+  if (off<f_data.length()) {
+    buf.assign(f_data,off,size);
+  }
+  printf("read %s from %s\n",buf.c_str(),yfs_client::filename(ino).c_str());
+  return OK;
+}
+
+yfs_client::status
+yfs_client::write(inum ino, const char * buf, unsigned int off, unsigned int size)
+{
+  printf("yfs_client::write %u %u %s->%s\n",off, size, buf,yfs_client::filename(ino).c_str());
+  std::string f_data;
+  status ret = ext2yfs(ec->get(ino, f_data));
+  if (ret != OK) {
+    return ret;
+  }
+  std::string new_data = f_data.substr(0,off);
+  printf("base str=%s\n",new_data.c_str());
+  if (off > new_data.length()) {
+    new_data.append(off-new_data.length(), '\0');
+  }
+  printf("base str=%s\n",new_data.c_str());
+  /*
+  while (new_data.length() < off) {
+    new_data += "\0";
+  }
+  */
+  new_data.append(buf, size);
+  printf("base str=%s\n",new_data.c_str());
+  if (new_data.length() < f_data.length()) {
+    new_data.append(f_data, new_data.length(), std::string::npos);
+  }
+  printf("base_str=%s\n",new_data.c_str());
+  printf("orig_str=%s\n",f_data.c_str());
+  ret = ext2yfs(ec->put(ino, new_data));
+  if (ret != OK) {
+    return ret;
+  }
+  return OK;
+}
 
 // parse string of directory content
 yfs_dir::yfs_dir(std::string dir){

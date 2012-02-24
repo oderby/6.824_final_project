@@ -50,6 +50,10 @@ class yfs_client {
   status create(inum, const char*, inum &);
   status lookup(inum, const char*, inum &);
   status getdir_contents(inum, yfs_dir**);
+  status setattr(inum, unsigned int);
+  status read(inum, unsigned int, unsigned int, std::string &);
+  status write(inum, const char *, unsigned int, unsigned int);
+
 };
 
 // simple class to provide nice ways of modifying directory strings

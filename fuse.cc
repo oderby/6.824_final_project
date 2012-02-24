@@ -124,21 +124,22 @@ fuseserver_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr,
   printf("fuseserver_setattr 0x%x\n", to_set);
   if (FUSE_SET_ATTR_SIZE & to_set) {
     printf("   fuseserver_setattr set size to %zu\n", attr->st_size);
-#if 0
+    yfs_client::inum inum = ino;
+    if (yfs->isdir(inum)) {
+      fuse_reply_err(req, EISDIR);
+      return;
+    }
     struct stat st;
     // You fill this in for Lab 2
     yfs_client::status ret = yfs->setattr((yfs_client::inum) ino, attr->st_size);
     if (ret == yfs_client::OK) {
       ret = getattr((yfs_client::inum) ino, st);
       if(ret != yfs_client::OK)
-        fuse_reply_err(req, ENOSYS);
+        fuse_reply_err(req, EIO);
       fuse_reply_attr(req, &st, 0);
     } else {
-      fuse_reply_err(req, ENOSYS);
+      fuse_reply_err(req, EIO);
     }
-#else
-    fuse_reply_err(req, ENOSYS);
-#endif
   } else {
     fuse_reply_err(req, ENOSYS);
   }
@@ -162,13 +163,18 @@ fuseserver_read(fuse_req_t req, fuse_ino_t ino, size_t size,
 {
   // You fill this in for Lab 2
   printf("fuseserver_read\n");
-#if 0
+  yfs_client::inum inum = ino;
+  if (yfs->isdir(inum)) {
+    fuse_reply_err(req, EISDIR);
+  }
   std::string buf;
+  yfs_client::status ret = yfs->read((yfs_client::inum)ino, off, size, buf);
+  if(ret != yfs_client::OK) {
+    fuse_reply_err(req, EIO);
+  }
+
   // Change the above "#if 0" to "#if 1", and your code goes here
   fuse_reply_buf(req, buf.data(), buf.size());
-#else
-  fuse_reply_err(req, ENOSYS);
-#endif
 }
 
 //
@@ -191,12 +197,17 @@ fuseserver_write(fuse_req_t req, fuse_ino_t ino,
 {
   // You fill this in for Lab 2
   printf("fuseserver_write\n");
-#if 0
   // Change the above line to "#if 1", and your code goes here
+  yfs_client::inum inum = ino;
+  if (yfs->isdir(inum)) {
+    fuse_reply_err(req, EISDIR);
+  }
+  yfs_client::status ret = yfs->write((yfs_client::inum)ino, buf, off, size);
+  if(ret != yfs_client::OK) {
+    fuse_reply_err(req, EIO);
+  }
+
   fuse_reply_write(req, size);
-#else
-  fuse_reply_err(req, ENOSYS);
-#endif
 }
 
 //
