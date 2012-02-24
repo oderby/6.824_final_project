@@ -124,12 +124,18 @@ fuseserver_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr,
   printf("fuseserver_setattr 0x%x\n", to_set);
   if (FUSE_SET_ATTR_SIZE & to_set) {
     printf("   fuseserver_setattr set size to %zu\n", attr->st_size);
+#if 0
     struct stat st;
     // You fill this in for Lab 2
-#if 0
-    // Change the above line to "#if 1", and your code goes here
-    // Note: fill st using getattr before fuse_reply_attr
-    fuse_reply_attr(req, &st, 0);
+    yfs_client::status ret = yfs->setattr((yfs_client::inum) ino, attr->st_size);
+    if (ret == yfs_client::OK) {
+      ret = getattr((yfs_client::inum) ino, st);
+      if(ret != yfs_client::OK)
+        fuse_reply_err(req, ENOSYS);
+      fuse_reply_attr(req, &st, 0);
+    } else {
+      fuse_reply_err(req, ENOSYS);
+    }
 #else
     fuse_reply_err(req, ENOSYS);
 #endif
@@ -155,6 +161,7 @@ fuseserver_read(fuse_req_t req, fuse_ino_t ino, size_t size,
                 off_t off, struct fuse_file_info *fi)
 {
   // You fill this in for Lab 2
+  printf("fuseserver_read\n");
 #if 0
   std::string buf;
   // Change the above "#if 0" to "#if 1", and your code goes here
@@ -183,6 +190,7 @@ fuseserver_write(fuse_req_t req, fuse_ino_t ino,
                  struct fuse_file_info *fi)
 {
   // You fill this in for Lab 2
+  printf("fuseserver_write\n");
 #if 0
   // Change the above line to "#if 1", and your code goes here
   fuse_reply_write(req, size);
@@ -211,6 +219,7 @@ yfs_client::status
 fuseserver_createhelper(fuse_ino_t parent, const char *name,
                         mode_t mode, struct fuse_entry_param *e)
 {
+  printf("fuseserver_createhelper create %s\n", name);
   // In yfs, timeouts are always set to 0.0, and generations are always set to 0
   e->attr_timeout = 0.0;
   e->entry_timeout = 0.0;
@@ -221,8 +230,6 @@ fuseserver_createhelper(fuse_ino_t parent, const char *name,
   if (ret == yfs_client::OK) {
     e->ino = new_ino;
     struct stat st;
-    yfs_client::status ret;
-
     ret = getattr(new_ino, st);
     if(ret != yfs_client::OK)
       return ret;
@@ -272,12 +279,28 @@ void fuseserver_mknod( fuse_req_t req, fuse_ino_t parent,
 void
 fuseserver_lookup(fuse_req_t req, fuse_ino_t parent, const char *name)
 {
+  // TODO: what if someone is lookin up root?
   struct fuse_entry_param e;
   // In yfs, timeouts are always set to 0.0, and generations are always set to 0
   e.attr_timeout = 0.0;
   e.entry_timeout = 0.0;
   e.generation = 0;
   bool found = false;
+  printf("fuseserver_lookup %s\n", name);
+  yfs_client::inum f_ino;
+  yfs_client::status ret = yfs->lookup((yfs_client::inum) parent, name, f_ino);
+  if (ret == yfs_client::OK) {
+    e.ino = (fuse_ino_t) f_ino;
+    struct stat st;
+    ret = getattr((yfs_client::inum) f_ino, st);
+    if(ret == yfs_client::OK) {
+      found = true;
+      e.attr = st;
+    }
+    if (ret != yfs_client::OK) {
+      printf("error! %d\n",ret);
+    }
+  }
 
   // You fill this in for Lab 2
   if (found)
@@ -330,7 +353,7 @@ fuseserver_readdir(fuse_req_t req, fuse_ino_t ino, size_t size,
   yfs_client::inum inum = ino; // req->in.h.nodeid;
   struct dirbuf b;
 
-  printf("fuseserver_readdir\n");
+  printf("fuseserver_readdir %s\n", yfs_client::filename(inum).c_str());
 
   if(!yfs->isdir(inum)){
     fuse_reply_err(req, ENOTDIR);
@@ -341,9 +364,22 @@ fuseserver_readdir(fuse_req_t req, fuse_ino_t ino, size_t size,
 
 
   // You fill this in for Lab 2
+  yfs_dir* dir = NULL;
+  yfs_client::status ret = yfs->getdir_contents(inum, &dir);
+  if (ret == yfs_client::OK && dir != NULL) {
+    // TODO: clean this up! Shouldn't be accessing private member of a class
+    // instance to do this!
+    std::map<std::string, yfs_client::inum>::const_iterator it;
+    for (it = dir->dir_.begin(); it != dir->dir_.end(); it++) {
+      printf("discoverd file %s, %s\n",it->first.c_str(), yfs_client::filename(it->second).c_str());
+      dirbuf_add(&b, it->first.c_str(), it->second);
+    }
+    reply_buf_limited(req, b.p, b.size, off, size);
+  } else {
+    printf("readdir ret=%d, bool=%d\n",ret, dir!=NULL);
+    fuse_reply_err(req, ENOTDIR);
+  }
 
-
-  reply_buf_limited(req, b.p, b.size, off, size);
   free(b.p);
 }
 

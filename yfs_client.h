@@ -7,6 +7,8 @@
 #include "lang/verify.h"
 #include "extent_client.h"
 
+class yfs_dir;
+
 class yfs_client {
   extent_client *ec;
  public:
@@ -46,16 +48,18 @@ class yfs_client {
   int getdir(inum, dirinfo &);
 
   status create(inum, const char*, inum &);
+  status lookup(inum, const char*, inum &);
+  status getdir_contents(inum, yfs_dir**);
 };
 
 // simple class to provide nice ways of modifying directory strings
 
 class yfs_dir {
+ public:
   std::map<std::string, yfs_client::inum> dir_;
 
   yfs_client::dirent extract_dirent(std::string);
 
- public:
 
   yfs_dir(void) {};
 
@@ -65,6 +69,7 @@ class yfs_dir {
   void add(yfs_client::dirent);
   void rem(std::string);
   bool exists(std::string);
+  yfs_client::inum get(std::string);
 };
 
 #endif

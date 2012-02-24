@@ -25,7 +25,7 @@ yfs_client::yfs_client(std::string extent_dst, std::string lock_dst)
   printf("%s\n",dir->to_string().c_str());
   ec->put(100,dir->to_string());
   ec->remove(100);
-  dir = new yfs_dir(". 1:.. 1:");
+  dir = new yfs_dir(":");//new yfs_dir(". 1:.. 1:");
   ec->put(1, dir->to_string());
 }
 
@@ -75,7 +75,7 @@ yfs_client::isdir(inum inum)
 int
 yfs_client::getfile(inum inum, fileinfo &fin)
 {
-  printf("getfile %016llx\n", inum);
+  printf("getfile %s\n", yfs_client::filename(inum).c_str());
   extent_protocol::attr a;
   status ret = ext2yfs(ec->getattr(inum, a));
 
@@ -84,7 +84,7 @@ yfs_client::getfile(inum inum, fileinfo &fin)
     fin.mtime = a.mtime;
     fin.ctime = a.ctime;
     fin.size = a.size;
-    printf("getfile %016llx -> sz %llu\n", inum, fin.size);
+    printf("getfile %s -> sz %llu\n", yfs_client::filename(inum).c_str(), fin.size);
   }
   return ret;
 }
@@ -92,7 +92,7 @@ yfs_client::getfile(inum inum, fileinfo &fin)
 int
 yfs_client::getdir(inum inum, dirinfo &din)
 {
-  printf("getdir %016llx\n", inum);
+  printf("getdir %s\n", yfs_client::filename(inum).c_str());
   extent_protocol::attr a;
   status ret = ext2yfs(ec->getattr(inum, a));
 
@@ -132,6 +132,10 @@ yfs_client::create(inum p_ino, const char* name, inum& new_ino)
   new_ino = (rand() & 0xFFFF) | 0x80000000;
   //printf("new_ino: %s %llX\n", filename(new_ino).c_str(), new_ino);
   d.inum = new_ino;
+  std::string dummy;
+  if ((ret=ext2yfs(ec->get(new_ino, dummy))) != NOENT) {
+    printf("file already exists %s!!\n", yfs_client::filename(new_ino).c_str());
+  }
 
   // create empty extent for new file
   ret = ext2yfs(ec->put(new_ino, ""));
@@ -143,11 +147,45 @@ yfs_client::create(inum p_ino, const char* name, inum& new_ino)
   p_dir.add(d);
   ret = ext2yfs(ec->put(p_ino, p_dir.to_string()));
   if (ret != OK) {
+    //try to remove the file extent if we failed to update the parent
+    ec->remove(new_ino);
     return ret;
   }
 
   return OK;
 }
+
+yfs_client::status
+yfs_client::lookup(inum p_ino, const char* name, inum& f_ino)
+{
+  // make sure parent directory exists
+  std::string p_dir_str;
+  status ret = ext2yfs(ec->get(p_ino, p_dir_str));
+  if (ret != OK) {
+    return ret;
+  }
+  yfs_dir p_dir(p_dir_str);
+  // ensure we don't already have a file with the same name in this directory
+  std::string f_name(name);
+  if (!p_dir.exists(f_name)) {
+    return NOENT;
+  }
+  f_ino = p_dir.get(f_name);
+  return OK;
+}
+
+yfs_client::status
+yfs_client::getdir_contents(inum ino, yfs_dir** dir)
+{
+  std::string dir_str;
+  status ret = ext2yfs(ec->get(ino, dir_str));
+  if (ret == OK) {
+    printf("getdir_contents found dir %s\n",dir_str.c_str());
+    *dir = new yfs_dir(dir_str);
+  }
+  return ret;
+}
+
 
 // parse string of directory content
 yfs_dir::yfs_dir(std::string dir){
@@ -164,7 +202,7 @@ yfs_dir::yfs_dir(std::string dir){
     //dirent = yfs_dir::extract_dirent(dir.substr(last_found));
     //dir_[dirent.name] = dirent.inum;
   } else {
-    printf("yfs_dir: initialized empty dir!");
+    printf("yfs_dir: initialized empty dir!\n");
   }
 }
 
@@ -209,4 +247,9 @@ void yfs_dir::rem(std::string name) {
 bool
 yfs_dir::exists(std::string name) {
   return dir_.count(name)==1;
+}
+
+yfs_client::inum
+yfs_dir::get(std::string name) {
+  return dir_[name];
 }
