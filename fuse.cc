@@ -425,15 +425,25 @@ fuseserver_mkdir(fuse_req_t req, fuse_ino_t parent, const char *name,
   e.attr_timeout = 0.0;
   e.entry_timeout = 0.0;
   e.generation = 0;
-  // Suppress compiler warning of unused e.
-  (void) e;
 
   // You fill this in for Lab 3
-#if 0
-  fuse_reply_entry(req, &e);
-#else
-  fuse_reply_err(req, ENOSYS);
-#endif
+  yfs_client::inum new_ino;
+  yfs_client::status ret = yfs->mkdir((yfs_client::inum) parent, name, new_ino);
+  if (ret == yfs_client::OK) {
+    e.ino = new_ino;
+    struct stat st;
+    ret = getattr(new_ino, st);
+    if(ret != yfs_client::OK)
+      fuse_reply_err(req, ENOSYS);
+    else {
+      e.attr = st;
+      fuse_reply_entry(req, &e);
+    }
+  } else if (ret == yfs_client::EXIST) {
+    fuse_reply_err(req, EEXIST);
+  } else {
+    fuse_reply_err(req, EIO);
+  }
 }
 
 //
@@ -450,7 +460,14 @@ fuseserver_unlink(fuse_req_t req, fuse_ino_t parent, const char *name)
   // You fill this in for Lab 3
   // Success:	fuse_reply_err(req, 0);
   // Not found:	fuse_reply_err(req, ENOENT);
-  fuse_reply_err(req, ENOSYS);
+  yfs_client::status ret = yfs->unlink((yfs_client::inum) parent, name);
+  if (ret == yfs_client::OK) {
+    fuse_reply_err(req, 0);
+  } else if (ret == yfs_client::NOENT) {
+    fuse_reply_err(req, ENOENT);
+  } else {
+    fuse_reply_err(req, EIO);
+  }
 }
 
 void

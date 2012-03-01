@@ -51,6 +51,8 @@ class yfs_client {
   int getdir(inum, dirinfo &);
 
   status create(inum, const char*, inum &);
+  status mkdir(inum, const char*, inum&);
+  status unlink(inum, const char*);
   status lookup(inum, const char*, inum &);
   status getdir_contents(inum, yfs_dir**);
   status setattr(inum, unsigned int);
