@@ -14,7 +14,9 @@
 yfs_client::yfs_client(std::string extent_dst, std::string lock_dst)
 {
   ec = new extent_client(extent_dst);
-  // "create" root directory with inum 0x1
+  lc = new lock_client(lock_dst);
+
+  //self-test
   yfs_dir* dir = new yfs_dir("lala 2:po 3:tree 32124:");
   dir->rem("tree");
   dirent d;
@@ -26,6 +28,7 @@ yfs_client::yfs_client(std::string extent_dst, std::string lock_dst)
   printf("%s\n",dir->to_string().c_str());
   ec->put(100,dir->to_string());
   ec->remove(100);
+  // "create" root directory with inum 0x1
   dir = new yfs_dir(":");//new yfs_dir(". 1:.. 1:");
   ec->put(1, dir->to_string());
 }
@@ -110,6 +113,19 @@ yfs_client::getdir(inum inum, dirinfo &din)
   return ret;
 }
 
+yfs_client::inum
+yfs_client::get_unique_inum(void)
+{
+  status ret;
+  inum new_ino;
+  std::string dummy;
+  int max_iter = 15;
+  do {
+    new_ino = rand() & 0xFFFF;
+  } while ((ret=ext2yfs(ec->get(new_ino, dummy))) != NOENT && --max_iter > 0);
+  return new_ino;
+}
+
 // - If a file named @name already exists in @parent, return EXIST.
 // - Pick an ino (with type of yfs_client::inum) for file @name.
 //   Make sure ino indicates a file, not a directory!
@@ -133,14 +149,9 @@ yfs_client::create(inum p_ino, const char* name, inum& new_ino)
   }
 
   // generate a inum for new file
-  // TODO: since this is done randomly, we really should try until we succeed
-  new_ino = (rand() & 0xFFFF) | 0x80000000;
+  new_ino = get_unique_inum() | 0x80000000;
   //printf("new_ino: %s %llX\n", filename(new_ino).c_str(), new_ino);
   d.inum = new_ino;
-  std::string dummy;
-  if ((ret=ext2yfs(ec->get(new_ino, dummy))) != NOENT) {
-    printf("ino already exists %s!!\n", yfs_client::filename(new_ino).c_str());
-  }
 
   // create empty extent for new file
   ret = ext2yfs(ec->put(new_ino, ""));
@@ -178,14 +189,9 @@ yfs_client::mkdir(inum p_ino, const char* name, inum& new_ino)
   }
 
   // generate a inum for new file
-  // TODO: since this is done randomly, we really should try until we succeed
-  new_ino = rand() & 0xFFFF;
-  printf("new_dir_ino: %s %llX\n", yfs_client::filename(new_ino).c_str(), new_ino);
+  new_ino = get_unique_inum();
+  //printf("new_dir_ino: %s %llX\n", yfs_client::filename(new_ino).c_str(), new_ino);
   d.inum = new_ino;
-  std::string dummy;
-  if ((ret=ext2yfs(ec->get(new_ino, dummy))) != NOENT) {
-    printf("ino already exists %s!!\n", yfs_client::filename(new_ino).c_str());
-  }
 
   // create empty extent for new file
   ret = ext2yfs(ec->put(new_ino, ":"));

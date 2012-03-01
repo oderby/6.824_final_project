@@ -14,6 +14,7 @@ class yfs_dir;
 
 class yfs_client {
   extent_client *ec;
+  lock_client *lc;
  public:
 
   typedef unsigned long long inum;
@@ -38,6 +39,7 @@ class yfs_client {
 
  private:
   static status ext2yfs(extent_protocol::status);
+  inum get_unique_inum(void);
  public:
 
   yfs_client(std::string, std::string);
