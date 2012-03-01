@@ -240,28 +240,26 @@ yfs_client::write(inum ino, const char * buf, unsigned int off, unsigned int siz
 {
   printf("yfs_client::write %u %u %s->%s\n",off, size, buf,yfs_client::filename(ino).c_str());
   std::string f_data;
+  // get the current file
   status ret = ext2yfs(ec->get(ino, f_data));
   if (ret != OK) {
     return ret;
   }
+
+  //build up the new string (take the parts we want to keep from the old string,
+  //but insert the new part we want to write)
   std::string new_data = f_data.substr(0,off);
-  printf("base str=%s\n",new_data.c_str());
-  if (off > new_data.length()) {
-    new_data.append(off-new_data.length(), '\0');
+  if (off > f_data.length()) {
+    new_data.append(off-f_data.length(), '\0');
   }
-  printf("base str=%s\n",new_data.c_str());
-  /*
-  while (new_data.length() < off) {
-    new_data += "\0";
-  }
-  */
   new_data.append(buf, size);
-  printf("base str=%s\n",new_data.c_str());
   if (new_data.length() < f_data.length()) {
     new_data.append(f_data, new_data.length(), std::string::npos);
   }
-  printf("base_str=%s\n",new_data.c_str());
-  printf("orig_str=%s\n",f_data.c_str());
+  //printf("new_str=%s\n",new_data.c_str());
+  //printf("orig_str=%s\n",f_data.c_str());
+
+  // send the new data back to disk
   ret = ext2yfs(ec->put(ino, new_data));
   if (ret != OK) {
     return ret;
@@ -272,6 +270,7 @@ yfs_client::write(inum ino, const char * buf, unsigned int off, unsigned int siz
 // parse string of directory content
 yfs_dir::yfs_dir(std::string dir){
   if (dir.length() > 1) { //empty dir specified by ":"
+    //TODO: better separating character than ':' and " " (see extract_dirent)
     size_t found = dir.find(":");
     size_t last_found = 0;
     yfs_client::dirent dirent;
