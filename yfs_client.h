@@ -2,12 +2,15 @@
 #define yfs_client_h
 
 #include <string>
-//#include "yfs_protocol.h"
-#include "extent_client.h"
 #include <vector>
+//#include "yfs_protocol.h"
+#include "lang/verify.h"
+#include "extent_client.h"
 
 #include "lock_protocol.h"
 #include "lock_client.h"
+
+class yfs_dir;
 
 class yfs_client {
   extent_client *ec;
@@ -34,17 +37,46 @@ class yfs_client {
   };
 
  private:
-  static std::string filename(inum);
-  static inum n2i(std::string);
+  static status ext2yfs(extent_protocol::status);
  public:
 
   yfs_client(std::string, std::string);
 
+  static std::string filename(inum);
+  static inum n2i(std::string);
   bool isfile(inum);
   bool isdir(inum);
 
   int getfile(inum, fileinfo &);
   int getdir(inum, dirinfo &);
+
+  status create(inum, const char*, inum &);
+  status lookup(inum, const char*, inum &);
+  status getdir_contents(inum, yfs_dir**);
+  status setattr(inum, unsigned int);
+  status read(inum, unsigned int, unsigned int, std::string &);
+  status write(inum, const char *, unsigned int, unsigned int);
+
 };
 
-#endif 
+// simple class to provide nice ways of modifying directory strings
+
+class yfs_dir {
+ public:
+  std::map<std::string, yfs_client::inum> dir_;
+
+  yfs_client::dirent extract_dirent(std::string);
+
+
+  yfs_dir(void) {};
+
+  yfs_dir(std::string);
+
+  std::string to_string(void);
+  void add(yfs_client::dirent);
+  void rem(std::string);
+  bool exists(std::string);
+  yfs_client::inum get(std::string);
+};
+
+#endif
