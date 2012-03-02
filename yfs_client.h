@@ -83,4 +83,19 @@ class yfs_dir {
   yfs_client::inum get(std::string);
 };
 
+struct ScopedRemoteLock {
+ private:
+  lock_protocol::lockid_t ino_;
+  lock_client* lc_;
+ public:
+  ScopedRemoteLock(lock_client* lc, yfs_client::inum ino): lc_(lc) {
+    ino_ = ino;
+    //lc_ = lc;
+    VERIFY(lc_->acquire(ino_)==0);
+  }
+  ~ScopedRemoteLock() {
+    VERIFY(lc_->release(ino_)==0);
+  }
+};
+
 #endif

@@ -23,7 +23,7 @@ lock_protocol::status
 lock_server::stat(int clt, lock_protocol::lockid_t lid, int &r)
 {
   lock_protocol::status ret = lock_protocol::OK;
-  printf("stat request from clt %d\n", clt);
+  printf("stat request from clt %d for lid %llu\n", clt, lid);
   r = nacquire;
   return ret;
 }
@@ -32,7 +32,7 @@ lock_protocol::status
 lock_server::acquire(int clt, lock_protocol::lockid_t lid, int &r)
 {
   lock_protocol::status ret = lock_protocol::OK;
-  printf("acquire request from clt %d\n", clt);
+  printf("acquire request from clt %d for lid %llu\n", clt, lid);
   r = nacquire;
   VERIFY(pthread_mutex_lock(&m_)==0);
   while (lock_status_[lid]) {
@@ -47,7 +47,7 @@ lock_protocol::status
 lock_server::release(int clt, lock_protocol::lockid_t lid, int &r)
 {
   lock_protocol::status ret = lock_protocol::OK;
-  printf("release request from clt %d\n", clt);
+  printf("release request from clt %d for lid %llu\n", clt, lid);
   r = nacquire;
   VERIFY(pthread_mutex_lock(&m_)==0);
   lock_status_[lid] = false;
