@@ -115,19 +115,9 @@ yfs_client::getdir(inum inum, dirinfo &din)
 }
 
 yfs_client::inum
-yfs_client::get_unique_inum(void)
+get_rand_num(void)
 {
-  status ret;
-  inum new_ino;
-  std::string dummy;
-  int max_iter = 15;
-  do {
-    new_ino = rand() & 0xFFFF;
-  } while ((ret=ext2yfs(ec->get(new_ino, dummy))) != NOENT && --max_iter > 0);
-  if ((ret=ext2yfs(ec->get(new_ino, dummy))) != NOENT) {
-    printf("ino %s exists! using anyways\n",filename(new_ino).c_str());
-  }
-  return new_ino;
+  return (rand()<<16|rand()) & 0xFFFF;
 }
 
 // - If a file named @name already exists in @parent, return EXIST.
@@ -156,15 +146,13 @@ yfs_client::create(inum p_ino, const char* name, inum& new_ino)
   // generate a inum for new file
   std::string dummy;
   while (true) {
-    new_ino = (rand() & 0xFFFF) | 0x80000000;
+    new_ino = get_rand_num() | 0x80000000;
     lc->acquire((lock_protocol::lockid_t) new_ino);
     ret = ext2yfs(ec->get(new_ino, dummy));
     if (ret == NOENT) //keep lock, break out
       break;
     lc->release((lock_protocol::lockid_t) new_ino);
   }
-  //new_ino = get_unique_inum() | 0x80000000;
-  //ScopedRemoteLock fl(lc, new_ino);
   //printf("new_ino: %s %llX\n", filename(new_ino).c_str(), new_ino);
   if ((ret=ext2yfs(ec->get(new_ino, dummy))) != NOENT) {
     printf("ino %s exists! using anyways\n",filename(new_ino).c_str());
@@ -206,27 +194,35 @@ yfs_client::mkdir(inum p_ino, const char* name, inum& new_ino)
   }
 
   // generate a inum for new file
-  new_ino = get_unique_inum();
-  ScopedRemoteLock fl(lc, new_ino);
+  std::string dummy;
+  while (true) {
+    new_ino = get_rand_num();
+    lc->acquire((lock_protocol::lockid_t) new_ino);
+    ret = ext2yfs(ec->get(new_ino, dummy));
+    if (ret == NOENT) //keep lock, break out
+      break;
+    lc->release((lock_protocol::lockid_t) new_ino);
+  }
+  //printf("new_ino: %s %llX\n", filename(new_ino).c_str(), new_ino);
+  if ((ret=ext2yfs(ec->get(new_ino, dummy))) != NOENT) {
+    printf("ino %s exists! using anyways\n",filename(new_ino).c_str());
+  }
   //printf("new_dir_ino: %s %llX\n", yfs_client::filename(new_ino).c_str(), new_ino);
   d.inum = new_ino;
 
   // create empty extent for new file
   ret = ext2yfs(ec->put(new_ino, ":"));
-  if (ret != OK) {
-    return ret;
+  if (ret == OK) {
+    // add new file to parent directory
+    p_dir.add(d);
+    ret = ext2yfs(ec->put(p_ino, p_dir.to_string()));
+    if (ret != OK) {
+      //try to remove the file extent if we failed to update the parent
+      ec->remove(new_ino);
+    }
   }
-
-  // add new file to parent directory
-  p_dir.add(d);
-  ret = ext2yfs(ec->put(p_ino, p_dir.to_string()));
-  if (ret != OK) {
-    //try to remove the file extent if we failed to update the parent
-    ec->remove(new_ino);
-    return ret;
-  }
-
-  return OK;
+  lc->release((lock_protocol::lockid_t) new_ino);
+  return ret;
 }
 
 yfs_client::status
@@ -236,7 +232,6 @@ yfs_client::unlink(inum p_ino, const char* name)
   std::string p_dir_str;
   ScopedRemoteLock ml(lc, p_ino);
   printf("yfs_client::unlink %s %s\n",filename(p_ino).c_str(), name);
-  //lc->acquire((lock_protocol::lockid_t) p_ino);
   status ret = ext2yfs(ec->get(p_ino, p_dir_str));
   if (ret != OK) {
     return ret;

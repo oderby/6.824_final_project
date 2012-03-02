@@ -39,7 +39,6 @@ class yfs_client {
 
  private:
   static status ext2yfs(extent_protocol::status);
-  inum get_unique_inum(void);
  public:
 
   yfs_client(std::string, std::string);
