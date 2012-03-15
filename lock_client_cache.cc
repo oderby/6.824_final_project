@@ -30,12 +30,6 @@ lock_client_cache::lock_client_cache(std::string xdst,
   VERIFY(pthread_cond_init(&wait_release_, 0) == 0);
 }
 
-/*lock_client_cache::~lock_client_cache()
-{
-  VERIFY(pthread_mutex_destroy(&m_) == 0);
-}
-*/
-
 lock_protocol::status
 lock_client_cache::acquire(lock_protocol::lockid_t lid)
 {
@@ -48,10 +42,11 @@ lock_client_cache::acquire(lock_protocol::lockid_t lid)
             id.c_str(), pthread_self(), lid, lock_status_[lid]);
     VERIFY(pthread_cond_wait(&wait_release_, &m_) == 0);
   }
-  lockstate lis = lock_status_[lid];
-  //Check state
+
   tprintf("lock_client_cache(%s:%lu): trying acquire of lock %llu in state %d\n",
           id.c_str(),pthread_self(), lid, lock_status_[lid]);
+  //Check state
+  lockstate lis = lock_status_[lid];
   if (lis == lock_client_cache::NONE) {
     try_acquire = true;
     lock_status_[lid] = lock_client_cache::ACQUIRING;
@@ -148,7 +143,6 @@ lock_client_cache::revoke_handler(lock_protocol::lockid_t lid,
                                   int &)
 {
   int ret = rlock_protocol::OK;
-  bool should_release = false;
   VERIFY(pthread_mutex_lock(&m_)==0);
   lockstate lis = lock_status_[lid];
   tprintf("lock_client_cache(%s:%lu): received revoke of lock %llu in state %d\n",
@@ -164,7 +158,6 @@ lock_client_cache::revoke_handler(lock_protocol::lockid_t lid,
     case lock_client_cache::FREE:
       {
         lock_status_[lid] = lock_client_cache::FREE_RLS;
-        //should_release = true;
 
         VERIFY(pthread_mutex_unlock(&m_)==0);
         // release lock to lock server
@@ -186,77 +179,8 @@ lock_client_cache::revoke_handler(lock_protocol::lockid_t lid,
   }
 
   VERIFY(pthread_mutex_unlock(&m_)==0);
-  /*
-  if (should_release) {
-    lock_rls_info info;
-    info.lid = lid;
-    //info.lc = this;
-    info.id = id;
-    info.cl = cl;
-    //send_release((void *) &info);
-    int rc = pthread_create(0, NULL, send_release, (void *) &info);
-    VERIFY(rc==0);
-  }
-  */
   return ret;
 }
-
-void* send_release(void* i)
-{
-  struct lock_rls_info* info;
-  info = (struct lock_rls_info*)i;
-  lock_protocol::status r, ret;
-
-  ret = info->cl->call(lock_protocol::release, info->lid, info->id, r);
-  VERIFY (r == lock_protocol::OK);
-  /*if (ret != lock_protocol::OK) {
-    tprintf("lock_client_cache(%s): rls->rls Received unexpected error(%d) for lock %llu\n",
-            info->id.c_str(), ret, info->lid);
-  }
-  */
-  //VERIFY(pthread_mutex_lock(&m_)==0);
-  //lock_status_[lid] = lock_client_cache::NONE;
-  //VERIFY(pthread_mutex_unlock(&m_)==0);
-  if (ret == lock_protocol::OK) {
-    pthread_exit(NULL);
-  } else {
-    pthread_exit((void *)ret);
-  }
-}
-
-/*
-lock_protocol::status
-lock_client_cache::send_release(lock_protocol::lockid_t lid)
-{
-  lock_protocol::status r, ret;
-  ret = cl->call(lock_protocol::release, lid, id, r);
-  VERIFY (r == lock_protocol::OK);
-  if (ret != lock_protocol::OK) {
-    tprintf("lock_client_cache(%s): rls->rls Received unexpected error(%d) for lock %llu\n",
-            id.c_str(), ret, lid);
-  }
-  //VERIFY(pthread_mutex_lock(&m_)==0);
-  //lock_status_[lid] = lock_client_cache::NONE;
-  //VERIFY(pthread_mutex_unlock(&m_)==0);
-  return ret;
-}
-*/
-/*
-void* release_lock(void* i)
-{
-  struct lock_rls_info* info;
-  info = (struct lock_rls_info*)i;
-  lock_protocol::status r;
-
-  r = info->lc->send_release(info->lid);
-
-  if (r == lock_protocol::OK) {
-    pthread_exit(NULL);
-  } else {
-    pthread_exit((void *)r);
-  }
-}
-*/
 
 rlock_protocol::status
 lock_client_cache::retry_handler(lock_protocol::lockid_t lid,

@@ -19,9 +19,6 @@ class lock_release_user {
   virtual ~lock_release_user() {};
 };
 
-void* release_lock(void*);
-void* send_release(void*);
-
 class lock_client_cache : public lock_client {
  private:
   class lock_release_user *lu;
@@ -33,6 +30,7 @@ class lock_client_cache : public lock_client {
   pthread_mutex_t m_; //protect lock_status_
   pthread_cond_t wait_retry_;
   pthread_cond_t wait_release_;
+
  public:
   lock_client_cache(std::string xdst, class lock_release_user *l = 0);
   virtual ~lock_client_cache() {};
@@ -42,7 +40,6 @@ class lock_client_cache : public lock_client {
                                         int &);
   rlock_protocol::status retry_handler(lock_protocol::lockid_t,
                                        int &);
-  //lock_protocol::status send_release(lock_protocol::lockid_t);
 };
 
 struct lock_rls_info {

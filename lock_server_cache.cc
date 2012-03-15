@@ -102,7 +102,6 @@ lock_server_cache::release(lock_protocol::lockid_t lid, std::string id, int &r)
   //pthread_attr_init(&attr);
   //pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
   pthread_t tid;
-  //retry_wrapper((void *)&info);
   int rc = pthread_create(&tid, NULL, retry_wrapper, (void *) info);
   VERIFY(rc==0);
   /*
@@ -155,33 +154,6 @@ void* retry_wrapper(void* i) {
     pthread_exit((void *)r);
   }
 }
-
-/*
-void* retry_wrapper(void* i) {
-  struct lock_retry_info* info;
-  info = (struct lock_retry_info*)i;
-
-  tprintf("lock_server_cache sending retry to %s for lid %llu\n", info->id.c_str(), info->lid);
-  handle h(info->id);
-  rlock_protocol::status r = lock_protocol::OK;
-  if (h.safebind()) {
-    lock_protocol::status ret;
-    ret = h.safebind()->call(rlock_protocol::retry,info->lid,r);
-    VERIFY (ret == lock_protocol::OK);
-  } else {
-    r = lock_protocol::IOERR;
-  }
-  if (r != rlock_protocol::OK) {
-    r = lock_protocol::RPCERR;
-  }
-
-  if (r == lock_protocol::OK) {
-    pthread_exit(NULL);
-  } else {
-    pthread_exit((void *)r);
-  }
-}
-*/
 
 lock_protocol::status
 lock_server_cache::send_retry(lock_protocol::lockid_t lid, std::string id)
