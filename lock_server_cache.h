@@ -28,7 +28,7 @@ class lock_server_cache {
   std::map<lock_protocol::lockid_t, lockinfo> lock_status_;
   pthread_mutex_t m_;
   lock_protocol::status send_revoke(lock_protocol::lockid_t, std::string);
-  lock_protocol::status send_retry(lock_protocol::lockid_t, std::string);
+
  public:
   lock_server_cache();
   ~lock_server_cache();

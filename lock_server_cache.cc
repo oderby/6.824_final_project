@@ -25,7 +25,7 @@ int lock_server_cache::acquire(lock_protocol::lockid_t lid, std::string id,
                                int &)
 {
   lock_protocol::status ret = lock_protocol::OK;
-  bool should_revoke;
+  bool should_revoke = false;
   std::string owner;
   VERIFY(pthread_mutex_lock(&m_)==0);
   tprintf("acquire request from %s for lid %llu\n", id.c_str(), lid);
@@ -79,49 +79,29 @@ lock_server_cache::send_revoke(lock_protocol::lockid_t lid, std::string id)
 int
 lock_server_cache::release(lock_protocol::lockid_t lid, std::string id, int &r)
 {
-  lock_protocol::status ret = lock_protocol::OK;
-  std::set<std::string> temp;
   VERIFY(pthread_mutex_lock(&m_)==0);
   tprintf("release request from %s for lid %llu\n", id.c_str(), lid);
   if (!lock_status_[lid].locked) {
     tprintf("release of unlocked lock!\n");
   }
-  lock_status_[lid].locked = false;
-  VERIFY(lock_status_[lid].owner.compare(id)==0);
-  lock_status_[lid].owner.clear();
 
+  VERIFY(lock_status_[lid].owner.compare(id)==0);
   lock_retry_info* info = new lock_retry_info();
   info->lid = lid;
   info->waiting = lock_status_[lid].waiting;
 
+  lock_status_[lid].locked = false;
+  lock_status_[lid].owner.clear();
   lock_status_[lid].waiting = std::set<std::string>();
   VERIFY(pthread_mutex_unlock(&m_)==0);
-  //std::set<std::string>::iterator i=temp.begin();
-  lock_protocol::status re;
+
+  pthread_t tid;
   //pthread_attr_t attr;
   //pthread_attr_init(&attr);
   //pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-  pthread_t tid;
-  int rc = pthread_create(&tid, NULL, retry_wrapper, (void *) info);
-  VERIFY(rc==0);
-  /*
-  for (;i!=temp.end(); i++) {
-    lock_retry_info info;
-    info.lid = lid;
-    info.id = *i;
-    pthread_t tid;
-    //retry_wrapper((void *)&info);
-    int rc = pthread_create(&tid, NULL, retry_wrapper, (void *) &info);
-    VERIFY(rc==0);
-    /*re = send_retry(lid, *i);
-    if (re != lock_protocol::OK) {
-      tprintf("lock_server_cache ERROR(%d) sending retry to %s for lid %llu\n",r, i->c_str(), lid);
-    }
-
-  }
-  */
+  VERIFY(pthread_create(&tid, NULL, retry_wrapper, (void *) info)==0);
   //pthread_attr_destroy(&attr);
-  return ret;
+  return lock_protocol::OK;
 }
 
 void* retry_wrapper(void* i) {
@@ -138,39 +118,22 @@ void* retry_wrapper(void* i) {
       lock_protocol::status ret;
       ret = h.safebind()->call(rlock_protocol::retry,info->lid,r);
       VERIFY (ret == lock_protocol::OK);
+      if (r != rlock_protocol::OK) {
+        r = lock_protocol::RPCERR;
+      }
     } else {
       r = lock_protocol::IOERR;
-    }
-    if (r != rlock_protocol::OK) {
-      r = lock_protocol::RPCERR;
     }
   }
 
   info->waiting.clear();
   delete info;
+
   if (r == lock_protocol::OK) {
     pthread_exit(NULL);
   } else {
     pthread_exit((void *)r);
   }
-}
-
-lock_protocol::status
-lock_server_cache::send_retry(lock_protocol::lockid_t lid, std::string id)
-{
-  handle h(id);
-  rlock_protocol::status r;
-  if (h.safebind()) {
-    lock_protocol::status ret;
-    ret = h.safebind()->call(rlock_protocol::retry,lid,r);
-    VERIFY (ret == lock_protocol::OK);
-  } else {
-    return lock_protocol::IOERR;
-  }
-  if (r != rlock_protocol::OK) {
-    return lock_protocol::RPCERR;
-  }
-  return lock_protocol::OK;
 }
 
 lock_protocol::status
