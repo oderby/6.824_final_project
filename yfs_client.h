@@ -8,13 +8,13 @@
 #include "extent_client.h"
 
 #include "lock_protocol.h"
-#include "lock_client.h"
+#include "lock_client_cache.h"
 
 class yfs_dir;
 
 class yfs_client {
   extent_client *ec;
-  lock_client *lc;
+  lock_client_cache *lc;
  public:
 
   typedef unsigned long long inum;

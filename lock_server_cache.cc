@@ -147,6 +147,8 @@ void* retry_wrapper(void* i) {
     }
   }
 
+  info->waiting.clear();
+  delete info;
   if (r == lock_protocol::OK) {
     pthread_exit(NULL);
   } else {
