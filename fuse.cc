@@ -301,7 +301,7 @@ fuseserver_lookup(fuse_req_t req, fuse_ino_t parent, const char *name)
   e.entry_timeout = 0.0;
   e.generation = 0;
   bool found = false;
-  printf("fuseserver_lookup %s\n", name);
+  printf("fuseserver_lookup %s in %llu\n", name, (yfs_client::inum) parent);
   yfs_client::inum f_ino;
   yfs_client::status ret = yfs->lookup((yfs_client::inum) parent, name, f_ino);
   if (ret == yfs_client::OK) {

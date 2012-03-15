@@ -66,6 +66,7 @@ lock_client_cache::acquire(lock_protocol::lockid_t lid)
     VERIFY(pthread_mutex_unlock(&m_)==0);
     lock_protocol::status r;
     ret = cl->call(lock_protocol::acquire, lid, id, r);
+    tprintf("got %d back from rpcc, %d back from server\n",r, ret);
     VERIFY(r == lock_protocol::OK);
     VERIFY(pthread_mutex_lock(&m_)==0);
     try_acquire = false;

@@ -16,21 +16,10 @@ yfs_client::yfs_client(std::string extent_dst, std::string lock_dst)
   ec = new extent_client(extent_dst);
   lc = new lock_client_cache(lock_dst);
 
-  //self-test
-  yfs_dir* dir = new yfs_dir("lala 2:po 3:tree 32124:");
-  dir->rem("tree");
-  dirent d;
-  d.name = "tester";
-  d.inum = 12453;
-  dir->add(d);
-  dir->rem("trial");
-  dir->add(d);
-  printf("%s\n",dir->to_string().c_str());
-  ec->put(100,dir->to_string());
-  ec->remove(100);
   // "create" root directory with inum 0x1
-  dir = new yfs_dir(":");//new yfs_dir(". 1:.. 1:");
-  ec->put(1, dir->to_string());
+  yfs_dir dir(":");//new yfs_dir(". 1:.. 1:");
+  ScopedRemoteLock fl(lc, 1);
+  ec->put(1, dir.to_string());
 }
 
 yfs_client::inum
