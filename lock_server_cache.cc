@@ -47,11 +47,11 @@ int lock_server_cache::acquire(lock_protocol::lockid_t lid, std::string id,
   VERIFY(pthread_mutex_unlock(&m_)==0);
   // do not hold mutex while sending revoke rpc
   if (should_revoke) {
-    tprintf("lock_server_cache sending revoke to %s for lid %llu\n",
+    tprintf("sending revoke to %s for lid %llu\n",
             owner.c_str(), lid);
     lock_protocol::status r = send_revoke(lid, owner);
     if (r != lock_protocol::OK) {
-      tprintf("lock_server_cache ERROR(%d) sending revoke to %s for lid %llu\n",
+      tprintf("ERROR(%d) sending revoke to %s for lid %llu\n",
               r, owner.c_str(), lid);
     }
   }
@@ -132,7 +132,7 @@ void* retry_wrapper(void* i) {
   std::set<std::string>::iterator it=info->waiting.begin();
   rlock_protocol::status r = lock_protocol::OK;
   for (;it!=info->waiting.end(); it++) {
-    tprintf("lock_server_cache sending retry to %s for lid %llu\n",
+    tprintf("sending retry to %s for lid %llu\n",
             it->c_str(), info->lid);
     handle h(*it);
     if (h.safebind()) {

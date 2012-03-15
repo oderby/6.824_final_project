@@ -32,6 +32,7 @@ class lock_client_cache : public lock_client {
   std::map<lock_protocol::lockid_t, lockstate> lock_status_;
   pthread_mutex_t m_; //protect lock_status_
   pthread_cond_t wait_retry_;
+  pthread_cond_t wait_release_;
  public:
   lock_client_cache(std::string xdst, class lock_release_user *l = 0);
   virtual ~lock_client_cache() {};

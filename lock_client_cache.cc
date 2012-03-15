@@ -27,6 +27,7 @@ lock_client_cache::lock_client_cache(std::string xdst,
 
   VERIFY(lock_status_[0]==lock_client_cache::NONE);
   VERIFY(pthread_cond_init(&wait_retry_, 0) == 0);
+  VERIFY(pthread_cond_init(&wait_release_, 0) == 0);
 }
 
 /*lock_client_cache::~lock_client_cache()
@@ -42,6 +43,10 @@ lock_client_cache::acquire(lock_protocol::lockid_t lid)
   bool try_acquire = false;
   VERIFY(pthread_mutex_lock(&m_)==0);
   lockstate lis = lock_status_[lid];
+  while (lock_status_[lid] != lock_client_cache::NONE
+         && lock_status_[lid] != lock_client_cache::FREE) {
+    VERIFY(pthread_cond_wait(&wait_release_, &m_) == 0);
+  }
   //Check state
   if (lis == lock_client_cache::NONE) {
     try_acquire = true;
@@ -112,6 +117,7 @@ lock_client_cache::release(lock_protocol::lockid_t lid)
           id.c_str(), lid, lis);
   if (lis == lock_client_cache::LOCKED) {
     lock_status_[lid] = FREE;
+    VERIFY(pthread_cond_signal(&wait_release_)==0);
   } else if (lis == lock_client_cache::RELEASING) {
     VERIFY(pthread_mutex_unlock(&m_)==0);
     // release lock to lock server
@@ -124,6 +130,7 @@ lock_client_cache::release(lock_protocol::lockid_t lid)
               id.c_str(), ret, lid);
     }
     lock_status_[lid] = lock_client_cache::NONE;
+    VERIFY(pthread_cond_signal(&wait_release_)==0);
   } else {
     tprintf("lock_client_cache(%s): unhandled state (%d) in rls for lock %llu\n",
             id.c_str(), lis, lid);
@@ -167,7 +174,7 @@ lock_client_cache::revoke_handler(lock_protocol::lockid_t lid,
                   ret, lid);
         }
         lock_status_[lid] = lock_client_cache::NONE;
-
+        VERIFY(pthread_cond_signal(&wait_release_)==0);
         break;
       }
     default:
