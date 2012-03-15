@@ -67,7 +67,7 @@ lock_client_cache::acquire(lock_protocol::lockid_t lid)
     lock_protocol::status r;
     ret = cl->call(lock_protocol::acquire, lid, id, r);
     tprintf("got %d back from rpcc, %d back from server\n",r, ret);
-    VERIFY(r == lock_protocol::OK);
+    //VERIFY(r == lock_protocol::OK);
     VERIFY(pthread_mutex_lock(&m_)==0);
     try_acquire = false;
     // need to grab (possibly changed) lis
@@ -126,7 +126,7 @@ lock_client_cache::release(lock_protocol::lockid_t lid)
     // release lock to lock server
     lock_protocol::status r;
     ret = cl->call(lock_protocol::release, lid, id, r);
-    VERIFY (r == lock_protocol::OK);
+    //VERIFY (r == lock_protocol::OK);
     VERIFY(pthread_mutex_lock(&m_)==0);
     if (ret != lock_protocol::OK) {
       tprintf("lock_client_cache(%s:%lu): rls->rls Received unexpected error(%d) for lock %llu\n",
@@ -170,7 +170,7 @@ lock_client_cache::revoke_handler(lock_protocol::lockid_t lid,
         // release lock to lock server
         lock_protocol::status r;
         ret = cl->call(lock_protocol::release, lid, id, r);
-        VERIFY (r == lock_protocol::OK);
+        //VERIFY (r == lock_protocol::OK);
         VERIFY(pthread_mutex_lock(&m_)==0);
         if (ret != lock_protocol::OK) {
           tprintf("lock_client_cache(%s:%lu): revoke->rls Received unexpected error(%d) for lock %llu\n",
