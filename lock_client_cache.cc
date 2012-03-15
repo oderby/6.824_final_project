@@ -87,6 +87,7 @@ lock_client_cache::acquire(lock_protocol::lockid_t lid)
         // must have received retry RPC out of order, so just go ahead and retry
         // acq
         try_acquire = true;
+        lock_status_[lid] = lock_client_cache::ACQUIRING;
       } else {
         tprintf("lock_client_cache(%s): Received unexpected error(%d) for lock %llu\n",
                 id.c_str(), ret, lid);
