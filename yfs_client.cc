@@ -257,7 +257,7 @@ yfs_client::lookup(inum p_ino, const char* name, inum& f_ino)
 {
   // make sure parent directory exists
   std::string p_dir_str;
-  ScopedRemoteLock fl(lc, p_ino);
+  //ScopedRemoteLock fl(lc, p_ino);
   status ret = ext2yfs(ec->get(p_ino, p_dir_str));
   if (ret != OK) {
     return ret;
