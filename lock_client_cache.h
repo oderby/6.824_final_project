@@ -28,7 +28,7 @@ class lock_client_cache : public lock_client {
   int rlock_port;
   std::string hostname;
   std::string id;
-  enum lockstate { NONE, ACQUIRING, WAITING, FREE, LOCKED, RELEASING };
+  enum lockstate { NONE, ACQUIRING, WAITING, FREE, LOCKED, RELEASING, FREE_RLS };
   std::map<lock_protocol::lockid_t, lockstate> lock_status_;
   pthread_mutex_t m_; //protect lock_status_
   pthread_cond_t wait_retry_;

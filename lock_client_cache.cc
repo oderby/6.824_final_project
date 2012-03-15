@@ -47,6 +47,8 @@ lock_client_cache::acquire(lock_protocol::lockid_t lid)
     try_acquire = true;
     lock_status_[lid] = lock_client_cache::ACQUIRING;
   } else if (lis == lock_client_cache::FREE) {
+    tprintf("lock_client_cache(%s): trying acquire of lock %llu in state %d\n",
+            id.c_str(), lid, lock_status_[lid]);
     lock_status_[lid] = lock_client_cache::LOCKED;
   }
 
@@ -70,7 +72,9 @@ lock_client_cache::acquire(lock_protocol::lockid_t lid)
       } else if (ret == lock_protocol::RETRY) {
         //wait for retry_handler invocation
         lock_status_[lid] = lock_client_cache::WAITING;
-        VERIFY(pthread_cond_wait(&wait_retry_, &m_) == 0);
+        while (lock_status_[lid] == lock_client_cache::WAITING) {
+          VERIFY(pthread_cond_wait(&wait_retry_, &m_) == 0);
+        }
         try_acquire = true;
       } else {
         tprintf("lock_client_cache(%s):acquire received unexpected error(%d) for lock %llu\n",
@@ -148,9 +152,9 @@ lock_client_cache::revoke_handler(lock_protocol::lockid_t lid,
       }
     case lock_client_cache::FREE:
       {
-        lock_status_[lid] = lock_client_cache::NONE;//lock_client_cache::RELEASING;
-        should_release = true;
-        /*
+        lock_status_[lid] = lock_client_cache::FREE_RLS;
+        //should_release = true;
+
         VERIFY(pthread_mutex_unlock(&m_)==0);
         // release lock to lock server
         lock_protocol::status r;
@@ -162,7 +166,7 @@ lock_client_cache::revoke_handler(lock_protocol::lockid_t lid,
                   ret, lid);
         }
         lock_status_[lid] = lock_client_cache::NONE;
-        */
+
         break;
       }
     default:
@@ -170,6 +174,7 @@ lock_client_cache::revoke_handler(lock_protocol::lockid_t lid,
   }
 
   VERIFY(pthread_mutex_unlock(&m_)==0);
+  /*
   if (should_release) {
     lock_rls_info info;
     info.lid = lid;
@@ -180,6 +185,7 @@ lock_client_cache::revoke_handler(lock_protocol::lockid_t lid,
     int rc = pthread_create(0, NULL, send_release, (void *) &info);
     VERIFY(rc==0);
   }
+  */
   return ret;
 }
 

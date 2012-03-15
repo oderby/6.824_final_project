@@ -14,6 +14,14 @@ struct lockinfo {
   std::set<std::string> waiting;
 };
 
+struct lock_retry_info {
+  lock_protocol::lockid_t lid;
+  //std::string id;
+  std::set<std::string> waiting;
+};
+
+void* retry_wrapper(void*);
+
 class lock_server_cache {
  private:
   int nacquire;
