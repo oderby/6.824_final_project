@@ -60,10 +60,10 @@ lock_client_cache::acquire(lock_protocol::lockid_t lid)
     // do not hold mutex while making rpc call
     VERIFY(pthread_mutex_unlock(&m_)==0);
     lock_protocol::status r;
-    ret = cl->call(lock_protocol::acquire, lid, id, r);
+    r = cl->call(lock_protocol::acquire, lid, id, ret);
     tprintf("lock_client_cache(%s:%lu): got %d back from rpcc, %d back from server\n",
             id.c_str(), pthread_self(), r, ret);
-    //VERIFY(r == lock_protocol::OK);
+    VERIFY(r == lock_protocol::OK);
     VERIFY(pthread_mutex_lock(&m_)==0);
     try_acquire = false;
     // need to grab (possibly changed) lis
@@ -121,8 +121,8 @@ lock_client_cache::release(lock_protocol::lockid_t lid)
     VERIFY(pthread_mutex_unlock(&m_)==0);
     // release lock to lock server
     lock_protocol::status r;
-    ret = cl->call(lock_protocol::release, lid, id, r);
-    //VERIFY (r == lock_protocol::OK);
+    r = cl->call(lock_protocol::release, lid, id, ret);
+    VERIFY (r == lock_protocol::OK);
     VERIFY(pthread_mutex_lock(&m_)==0);
     if (ret != lock_protocol::OK) {
       tprintf("lock_client_cache(%s:%lu): rls->rls Received unexpected error(%d) for lock %llu\n",
@@ -140,10 +140,9 @@ lock_client_cache::release(lock_protocol::lockid_t lid)
 }
 
 rlock_protocol::status
-lock_client_cache::revoke_handler(lock_protocol::lockid_t lid,
-                                  int &)
+lock_client_cache::revoke_handler(lock_protocol::lockid_t lid, int &r)
 {
-  int ret = rlock_protocol::OK;
+  r = rlock_protocol::OK;
   VERIFY(pthread_mutex_lock(&m_)==0);
   lockstate lis = lock_status_[lid];
   tprintf("lock_client_cache(%s:%lu): received revoke of lock %llu in state %d\n",
@@ -162,13 +161,13 @@ lock_client_cache::revoke_handler(lock_protocol::lockid_t lid,
 
         VERIFY(pthread_mutex_unlock(&m_)==0);
         // release lock to lock server
-        lock_protocol::status r;
+        lock_protocol::status ret;
         ret = cl->call(lock_protocol::release, lid, id, r);
-        //VERIFY (r == lock_protocol::OK);
+        VERIFY(ret == lock_protocol::OK);
         VERIFY(pthread_mutex_lock(&m_)==0);
-        if (ret != lock_protocol::OK) {
+        if (r != lock_protocol::OK) {
           tprintf("lock_client_cache(%s:%lu): revoke->rls Received unexpected error(%d) for lock %llu\n",
-                  id.c_str(), pthread_self(), ret, lid);
+                  id.c_str(), pthread_self(), r, lid);
         }
         lock_status_[lid] = lock_client_cache::NONE;
         VERIFY(pthread_cond_signal(&wait_release_)==0);
@@ -180,14 +179,13 @@ lock_client_cache::revoke_handler(lock_protocol::lockid_t lid,
   }
 
   VERIFY(pthread_mutex_unlock(&m_)==0);
-  return ret;
+  return rlock_protocol::OK;
 }
 
 rlock_protocol::status
-lock_client_cache::retry_handler(lock_protocol::lockid_t lid,
-                                 int &)
+lock_client_cache::retry_handler(lock_protocol::lockid_t lid, int &r)
 {
-  int ret = rlock_protocol::OK;
+  r = rlock_protocol::OK;
   VERIFY(pthread_mutex_lock(&m_)==0);
   lockstate lis = lock_status_[lid];
   tprintf("lock_client_cache(%s:%lu): received retry of lock %llu in state %d\n",
@@ -200,5 +198,5 @@ lock_client_cache::retry_handler(lock_protocol::lockid_t lid,
     VERIFY(pthread_cond_signal(&wait_retry_)==0);
   }
   VERIFY(pthread_mutex_unlock(&m_)==0);
-  return ret;
+  return rlock_protocol::OK;
 }

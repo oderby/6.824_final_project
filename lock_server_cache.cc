@@ -22,7 +22,7 @@ lock_server_cache::~lock_server_cache()
 }
 
 int lock_server_cache::acquire(lock_protocol::lockid_t lid, std::string id,
-                               int &)
+                               int &r)
 {
   lock_protocol::status ret = lock_protocol::OK;
   bool should_revoke = false;
@@ -38,21 +38,22 @@ int lock_server_cache::acquire(lock_protocol::lockid_t lid, std::string id,
       owner = lock_status_[lid].owner;
     }
     lock_status_[lid].waiting.insert(id);
-    ret = lock_protocol::RETRY;
+    r = lock_protocol::RETRY;
   } else {
     lock_status_[lid].locked = true;
     lock_status_[lid].owner = id;
     lock_status_[lid].waiting.clear();
+    r = lock_protocol::OK;
   }
   VERIFY(pthread_mutex_unlock(&m_)==0);
   // do not hold mutex while sending revoke rpc
   if (should_revoke) {
     tprintf("sending revoke to %s for lid %llu\n",
             owner.c_str(), lid);
-    lock_protocol::status r = send_revoke(lid, owner);
-    if (r != lock_protocol::OK) {
+    ret = send_revoke(lid, owner);
+    if (ret != lock_protocol::OK) {
       tprintf("ERROR(%d) sending revoke to %s for lid %llu\n",
-              r, owner.c_str(), lid);
+              ret, owner.c_str(), lid);
     }
   }
   return ret;
@@ -70,10 +71,7 @@ lock_server_cache::send_revoke(lock_protocol::lockid_t lid, std::string id)
   } else {
     return lock_protocol::IOERR;
   }
-  if (r != rlock_protocol::OK) {
-    return lock_protocol::RPCERR;
-  }
-  return lock_protocol::OK;
+  return r;
 }
 
 int
@@ -101,6 +99,7 @@ lock_server_cache::release(lock_protocol::lockid_t lid, std::string id, int &r)
   //pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
   VERIFY(pthread_create(&tid, NULL, retry_wrapper, (void *) info)==0);
   //pthread_attr_destroy(&attr);
+  r = lock_protocol::OK;
   return lock_protocol::OK;
 }
 
@@ -118,11 +117,7 @@ void* retry_wrapper(void* i) {
       lock_protocol::status ret;
       ret = h.safebind()->call(rlock_protocol::retry,info->lid,r);
       VERIFY (ret == lock_protocol::OK);
-      if (r != rlock_protocol::OK) {
-        r = lock_protocol::RPCERR;
-      }
-    } else {
-      r = lock_protocol::IOERR;
+      VERIFY(r==rlock_protocol::OK);
     }
   }
 
