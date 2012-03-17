@@ -5,5 +5,3 @@ void
 jsl_set_debug(int level) {
 	JSL_DEBUG_LEVEL = level;
 }
-
-
