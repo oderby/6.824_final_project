@@ -5,7 +5,7 @@
 #include <vector>
 //#include "yfs_protocol.h"
 #include "lang/verify.h"
-#include "extent_client.h"
+#include "extent_client_cache.h"
 
 #include "lock_protocol.h"
 #include "lock_client_cache.h"
@@ -13,7 +13,7 @@
 class yfs_dir;
 
 class yfs_client {
-  extent_client *ec;
+  extent_client_cache *ec;
   lock_client_cache *lc;
  public:
 

@@ -14,7 +14,7 @@ extent_server::extent_server()
 }
 
 
-int extent_server::put(extent_protocol::extentid_t id, std::string buf, int &)
+int extent_server::put(extent_protocol::extentid_t id, std::string buf, int &r)
 {
   printf("extent_server: received put request of %llu %s\n",id, buf.c_str());
   extent_server::finfo f;
@@ -27,6 +27,7 @@ int extent_server::put(extent_protocol::extentid_t id, std::string buf, int &)
   VERIFY(pthread_mutex_lock(&m_)==0);
   table_[id] = f;
   VERIFY(pthread_mutex_unlock(&m_)==0);
+  r = extent_protocol::OK;
   return extent_protocol::OK;
 }
 

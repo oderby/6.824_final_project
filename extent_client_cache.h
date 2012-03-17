@@ -1,18 +1,25 @@
 // extent client interface.
 
-#ifndef extent_client_h
-#define extent_client_h
+#ifndef extent_client_cache_h
+#define extent_client_cache_h
 
 #include <string>
 #include "extent_protocol.h"
+#include "extent_client.h"
 #include "rpc.h"
 
-class extent_client {
- protected:
-  rpcc *cl;
+struct extent_entry {
+  bool dirty;
+  std::string extent;
+  extent_protocol::attr attr;
+};
+
+class extent_client_cache : public extent_client {
+ private:
+  std::map<extent_protocol::extentid_t,extent_entry> local_extent_;
 
  public:
-  extent_client(std::string dst);
+  extent_client_cache(std::string dst);
 
   extent_protocol::status get(extent_protocol::extentid_t eid,
 			      std::string &buf);
