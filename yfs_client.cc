@@ -14,6 +14,8 @@
 yfs_client::yfs_client(std::string extent_dst, std::string lock_dst)
 {
   ec = new extent_client_cache(extent_dst);
+  //extent_user* eu = new extent_user(ec);
+  //lc = new lock_client_cache(lock_dst, eu);
   lc = new lock_client_cache(lock_dst);
 
   // "create" root directory with inum 0x1
@@ -72,7 +74,7 @@ yfs_client::getfile(inum ino, fileinfo &fin)
   // You modify this function for Lab 3
   // - hold and release the file lock
 
-  //ScopedRemoteLock fl(lc, ino);
+  ScopedRemoteLock fl(lc, ino);
   printf("getfile %s\n", yfs_client::filename(ino).c_str());
   extent_protocol::attr a;
   status ret = ext2yfs(ec->getattr(ino, a));
@@ -92,6 +94,7 @@ yfs_client::getdir(inum inum, dirinfo &din)
 {
   printf("getdir %s\n", yfs_client::filename(inum).c_str());
   extent_protocol::attr a;
+  ScopedRemoteLock fl(lc, inum);
   status ret = ext2yfs(ec->getattr(inum, a));
 
   if (ret == OK) {
@@ -257,7 +260,7 @@ yfs_client::lookup(inum p_ino, const char* name, inum& f_ino)
 {
   // make sure parent directory exists
   std::string p_dir_str;
-  //ScopedRemoteLock fl(lc, p_ino);
+  ScopedRemoteLock fl(lc, p_ino);
   status ret = ext2yfs(ec->get(p_ino, p_dir_str));
   if (ret != OK) {
     return ret;
@@ -327,6 +330,7 @@ yfs_client::setattr(inum ino, unsigned int new_size)
 yfs_client::status
 yfs_client::read(inum ino, unsigned int off, unsigned int size, std::string & buf)
 {
+  ScopedRemoteLock fl(lc, ino);
   printf("yfs_client::read %u %u %s\n",off, size, yfs_client::filename(ino).c_str());
   std::string f_data;
   status ret = ext2yfs(ec->get(ino, f_data));

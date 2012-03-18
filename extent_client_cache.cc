@@ -6,19 +6,22 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <time.h>
+#include "slock.h"
 
 // The calls assume that the caller holds a lock on the extent
 
 extent_client_cache::extent_client_cache(std::string dst) :
     extent_client(dst)
-{}
+{
+  VERIFY(pthread_mutex_init(&m_, 0) == 0);
+}
 
 extent_protocol::status
 extent_client_cache::get(extent_protocol::extentid_t eid, std::string &buf)
 {
+  ScopedLock ml(&m_);
   //do we have a cached copy?
   if (local_extent_.count(eid)==0) {
-
     extent_entry ee;
     ee.dirty = false;
     extent_protocol::status ret = extent_protocol::OK;
@@ -41,7 +44,7 @@ extent_protocol::status
 extent_client_cache::getattr(extent_protocol::extentid_t eid,
 		       extent_protocol::attr &attr)
 {
-  //VERIFY(cl->call(extent_protocol::getattr, eid, attr)==extent_protocol::OK);
+  ScopedLock ml(&m_);
   if(local_extent_.count(eid)==0) {
     return extent_protocol::NOENT;
   }
@@ -52,9 +55,6 @@ extent_client_cache::getattr(extent_protocol::extentid_t eid,
 extent_protocol::status
 extent_client_cache::put(extent_protocol::extentid_t eid, std::string buf)
 {
-  //extent_protocol::status r = extent_protocol::OK;
-  //VERIFY(cl->call(extent_protocol::put, eid, buf, r)==extent_protocol::OK);
-  //return r;
   extent_entry ee;
   time_t seconds;
   seconds = time(NULL);
@@ -63,6 +63,7 @@ extent_client_cache::put(extent_protocol::extentid_t eid, std::string buf)
   ee.attr.ctime = seconds;
   ee.attr.mtime = seconds;
   ee.attr.size = buf.size()*sizeof(char);
+  ScopedLock ml(&m_);
   local_extent_[eid] = ee;
   return extent_protocol::OK;
 }
@@ -70,9 +71,7 @@ extent_client_cache::put(extent_protocol::extentid_t eid, std::string buf)
 extent_protocol::status
 extent_client_cache::remove(extent_protocol::extentid_t eid)
 {
-  //extent_protocol::status r = extent_protocol::OK;
-  //VERIFY(cl->call(extent_protocol::remove, eid, r)==extent_protocol::OK);
-  //return r;
+  ScopedLock ml(&m_);
   VERIFY(local_extent_.erase(eid)==1);
   return extent_protocol::OK;
 }

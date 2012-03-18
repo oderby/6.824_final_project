@@ -6,6 +6,7 @@
 #include <string>
 #include "extent_protocol.h"
 #include "extent_client.h"
+#include "lock_client_cache.h"
 #include "rpc.h"
 
 struct extent_entry {
@@ -17,6 +18,7 @@ struct extent_entry {
 class extent_client_cache : public extent_client {
  private:
   std::map<extent_protocol::extentid_t,extent_entry> local_extent_;
+  pthread_mutex_t m_; //protect local_extent_ access
 
  public:
   extent_client_cache(std::string dst);
