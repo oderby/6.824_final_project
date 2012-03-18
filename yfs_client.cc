@@ -14,14 +14,16 @@
 yfs_client::yfs_client(std::string extent_dst, std::string lock_dst)
 {
   ec = new extent_client_cache(extent_dst);
-  //extent_user* eu = new extent_user(ec);
-  //lc = new lock_client_cache(lock_dst, eu);
-  lc = new lock_client_cache(lock_dst);
+  extent_user* eu = new extent_user(ec);
+  lc = new lock_client_cache(lock_dst, eu);
 
   // "create" root directory with inum 0x1
   yfs_dir dir(":");//new yfs_dir(". 1:.. 1:");
   ScopedRemoteLock fl(lc, 1);
-  ec->put(1, dir.to_string());
+  std::string root_dir;
+  if (ec->get(1, root_dir) == extent_protocol::NOENT) {
+    ec->put(1, dir.to_string());
+  }
 }
 
 yfs_client::inum
@@ -75,6 +77,12 @@ yfs_client::getfile(inum ino, fileinfo &fin)
   // - hold and release the file lock
 
   ScopedRemoteLock fl(lc, ino);
+  return getfile_helper(ino, fin);
+}
+
+int
+yfs_client::getfile_helper(inum ino, fileinfo &fin)
+{
   printf("getfile %s\n", yfs_client::filename(ino).c_str());
   extent_protocol::attr a;
   status ret = ext2yfs(ec->getattr(ino, a));
@@ -304,7 +312,7 @@ yfs_client::setattr(inum ino, unsigned int new_size)
   }
 
   fileinfo fin;
-  ret = getfile(ino, fin);
+  ret = getfile_helper(ino, fin);
   if (ret != OK) {
     return ret;
   }

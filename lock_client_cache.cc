@@ -118,6 +118,7 @@ lock_client_cache::release(lock_protocol::lockid_t lid)
     lock_status_[lid] = FREE;
     VERIFY(pthread_cond_signal(&wait_release_)==0);
   } else if (lis == lock_client_cache::RELEASING) {
+    lu->dorelease(lid);
     VERIFY(pthread_mutex_unlock(&m_)==0);
     // release lock to lock server
     lock_protocol::status r;
@@ -158,6 +159,7 @@ lock_client_cache::revoke_handler(lock_protocol::lockid_t lid, int &r)
     case lock_client_cache::FREE:
       {
         lock_status_[lid] = lock_client_cache::FREE_RLS;
+        lu->dorelease(lid);
 
         VERIFY(pthread_mutex_unlock(&m_)==0);
         // release lock to lock server
