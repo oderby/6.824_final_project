@@ -263,11 +263,11 @@ fuseserver_create(fuse_req_t req, fuse_ino_t parent, const char *name,
   if( (ret = fuseserver_createhelper( parent, name, mode, &e )) == yfs_client::OK ) {
     fuse_reply_create(req, &e, fi);
   } else {
-		if (ret == yfs_client::EXIST) {
-			fuse_reply_err(req, EEXIST);
-		}else{
-			fuse_reply_err(req, ENOENT);
-		}
+    if (ret == yfs_client::EXIST) {
+      fuse_reply_err(req, EEXIST);
+    } else {
+      fuse_reply_err(req, ENOENT);
+    }
   }
 }
 
@@ -278,11 +278,11 @@ void fuseserver_mknod( fuse_req_t req, fuse_ino_t parent,
   if( (ret = fuseserver_createhelper( parent, name, mode, &e )) == yfs_client::OK ) {
     fuse_reply_entry(req, &e);
   } else {
-		if (ret == yfs_client::EXIST) {
-			fuse_reply_err(req, EEXIST);
-		}else{
-			fuse_reply_err(req, ENOENT);
-		}
+    if (ret == yfs_client::EXIST) {
+      fuse_reply_err(req, EEXIST);
+    } else {
+      fuse_reply_err(req, ENOENT);
+    }
   }
 }
 

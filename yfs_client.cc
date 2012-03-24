@@ -151,12 +151,10 @@ yfs_client::create(inum p_ino, const char* name, inum& new_ino)
     ret = ext2yfs(ec->get(new_ino, dummy));
     if (ret == NOENT) //keep lock, break out
       break;
+    printf("rofl conflict on new ino %llu\n",new_ino);
     lc->release((lock_protocol::lockid_t) new_ino);
   }
   //printf("new_ino: %s %llX\n", filename(new_ino).c_str(), new_ino);
-  if ((ret=ext2yfs(ec->get(new_ino, dummy))) != NOENT) {
-    printf("ino %s exists! using anyways\n",filename(new_ino).c_str());
-  }
   d.inum = new_ino;
 
   // create empty extent for new file
@@ -201,13 +199,10 @@ yfs_client::mkdir(inum p_ino, const char* name, inum& new_ino)
     ret = ext2yfs(ec->get(new_ino, dummy));
     if (ret == NOENT) //keep lock, break out
       break;
+    printf("rofl conflict on new dir ino %llu\n",new_ino);
     lc->release((lock_protocol::lockid_t) new_ino);
   }
-  //printf("new_ino: %s %llX\n", filename(new_ino).c_str(), new_ino);
-  if ((ret=ext2yfs(ec->get(new_ino, dummy))) != NOENT) {
-    printf("ino %s exists! using anyways\n",filename(new_ino).c_str());
-  }
-  //printf("new_dir_ino: %s %llX\n", yfs_client::filename(new_ino).c_str(), new_ino);
+  //printf("new_dir_ino: %s %llX\n", filename(new_ino).c_str(), new_ino);
   d.inum = new_ino;
 
   // create empty extent for new file
