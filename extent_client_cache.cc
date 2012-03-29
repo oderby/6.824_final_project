@@ -42,6 +42,7 @@ extent_client_cache::get_helper(extent_protocol::extentid_t eid)
   extent_protocol::status ret = extent_protocol::OK;
   ret = cl->call(extent_protocol::get, eid, ee.extent);
   if (ret == extent_protocol::NOENT) {
+    printf("extent_client_cache: tried to get %llu, NOENT!\n",eid);
     return ret;
   }
   VERIFY(ret == extent_protocol::OK);
