@@ -24,6 +24,10 @@ int extent_server::put(extent_protocol::extentid_t id, std::string buf, int &r)
   f.a.ctime = seconds;
   f.a.mtime = seconds;
   f.a.size = buf.size()*sizeof(char);
+
+  //TODO check if version of client file is correct version.
+  //TODO increment version
+
   VERIFY(pthread_mutex_lock(&m_)==0);
   table_[id] = f;
   VERIFY(pthread_mutex_unlock(&m_)==0);
@@ -64,6 +68,7 @@ int extent_server::getattr(extent_protocol::extentid_t id, extent_protocol::attr
   a.atime = f.a.atime;
   a.mtime = f.a.mtime;
   a.ctime = f.a.ctime;
+  a.version = f.a.version;
   VERIFY(pthread_mutex_unlock(&m_)==0);
   return extent_protocol::OK;
 }
