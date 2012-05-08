@@ -37,8 +37,9 @@ lab1: rpc/rpctest lock_server lock_tester lock_demo
 lab2: rpc/rpctest lock_server lock_tester lock_demo yfs_client extent_server
 lab3: yfs_client extent_server lock_server test-lab-3-b test-lab-3-c
 lab4: yfs_client extent_server lock_server lock_tester test-lab-3-b\
-	 test-lab-3-c
-lab5: yfs_client extent_server lock_server test-lab-3-b test-lab-3-c
+	test-lab-3-c
+lab5: yfs_client extent_server lock_server test-lab-3-b test-lab-3-c\
+	disconnect_tester
 lab6: lock_server rsm_tester
 lab7: lock_tester lock_server rsm_tester
 
@@ -114,6 +115,9 @@ test-lab-4-c:  $(patsubst %.c,%.o,$(test_lab_4-c)) rpc/librpc.a
 rsm_tester=rsm_tester.cc rsmtest_client.cc
 rsm_tester:  $(patsubst %.cc,%.o,$(rsm_tester)) rpc/librpc.a
 
+disconnect_tester=disconnect_tester.cc disconnect_client.cc
+disconnect_tester:  $(patsubst %.cc,%.o,$(disconnnect_tester)) rpc/librpc.a
+
 %.o: %.cc
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
@@ -126,7 +130,7 @@ fuse.o: fuse.cc
 -include *.d
 -include rpc/*.d
 
-clean_files=rpc/rpctest rpc/*.o rpc/*.d rpc/librpc.a *.o *.d yfs_client extent_server lock_server lock_tester lock_demo rpctest test-lab-3-b test-lab-3-c rsm_tester
+clean_files=rpc/rpctest rpc/*.o rpc/*.d rpc/librpc.a *.o *.d yfs_client extent_server lock_server lock_tester lock_demo rpctest test-lab-3-b test-lab-3-c rsm_tester disconnect_tester
 .PHONY: clean handin
 clean:
 	rm $(clean_files) -rf

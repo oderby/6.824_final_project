@@ -7,7 +7,7 @@
 #include <iostream>
 #include <stdio.h>
 
-rsmtest_client::disconnect_client(std::string dst)
+disconnect_client::disconnect_client(std::string dst)
 {
   sockaddr_in dstsock;
   make_sockaddr(dst.c_str(), &dstsock);

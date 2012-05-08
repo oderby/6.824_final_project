@@ -202,3 +202,15 @@ lock_client_cache::retry_handler(lock_protocol::lockid_t lid, int &r)
   VERIFY(pthread_mutex_unlock(&m_)==0);
   return rlock_protocol::OK;
 }
+
+lock_test_protocol::status
+lock_client_cache::disconnect(bool kill, int &r)
+{
+  r = lock_test_protocol::OK;
+  VERIFY(pthread_mutex_lock(&m_)==0);
+  disconnected = kill;
+  //TODO: Notify server of disconnection
+  //TODO: Fix state of locks waiting to acquire/retry??
+  VERIFY(pthread_mutex_unlock(&m_)==0);
+  return lock_test_protocol::OK;
+}
