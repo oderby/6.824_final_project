@@ -18,6 +18,7 @@ lock_client_cache::lock_client_cache(std::string xdst,
   rpcs *rlsrpc = new rpcs(0);
   rlsrpc->reg(rlock_protocol::revoke, this, &lock_client_cache::revoke_handler);
   rlsrpc->reg(rlock_protocol::retry, this, &lock_client_cache::retry_handler);
+  rlsrpc->reg(lock_test_protocol::disconnect, this, &lock_client_cache::disconnect);
 
   const char *hname;
   hname = "127.0.0.1";
@@ -209,6 +210,8 @@ lock_client_cache::disconnect(bool kill, int &r)
   r = lock_test_protocol::OK;
   VERIFY(pthread_mutex_lock(&m_)==0);
   disconnected = kill;
+  tprintf("lock_client_cache(%s:%lu): received disconnect rpc %d\n",
+          id.c_str(), pthread_self(), kill);
   //TODO: Notify server of disconnection
   //TODO: Fix state of locks waiting to acquire/retry??
   VERIFY(pthread_mutex_unlock(&m_)==0);
