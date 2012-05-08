@@ -210,11 +210,15 @@ lock_client_cache::disconnect(bool kill, int &r)
 {
   r = lock_test_protocol::OK;
   VERIFY(pthread_mutex_lock(&m_)==0);
-  disconnected = kill;
   tprintf("lock_client_cache(%s:%lu): received disconnect rpc %d\n",
           id.c_str(), pthread_self(), kill);
-  //TODO: Notify server of disconnection
-  //TODO: Fix state of locks waiting to acquire/retry??
+  if (kill) {
+    int ret = disconnect_server();
+  }
+  disconnected = kill;
+  //TODO: On disconnect: Any lock we have in state RELEASING -> LOCKED
+  //                     Any lock we have in state FREE_RLS -> NONE (extent is invalidated)
+  //TODO: On reconnect: Any locks not in state NONE, try to reacquire
   VERIFY(pthread_mutex_unlock(&m_)==0);
   return lock_test_protocol::OK;
 }
@@ -224,5 +228,5 @@ lock_client_cache::disconnect_server()
 {
   lock_test_protocol::status ret = lock_test_protocol::OK;
   VERIFY(cl->call(lock_test_protocol::disconnect_server,id,ret)==lock_test_protocol::OK);
-  disconnected = true; 
+  return lock_test_protocol::OK;
 }
