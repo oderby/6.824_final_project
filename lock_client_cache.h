@@ -22,7 +22,6 @@ class lock_release_user {
 class lock_client_cache : public lock_client {
  private:
   class lock_release_user *lu;
-  bool disconnected;
   int rlock_port;
   std::string hostname;
   std::string id;

@@ -32,14 +32,6 @@ lock_client_cache::lock_client_cache(std::string xdst,
   VERIFY(pthread_cond_init(&wait_release_, 0) == 0);
 }
 
-lock_test_protocol::status
-lock_client_cache::disconnect_server()
-{
-  lock_test_protocol::status ret = lock_test_protocol::OK;
-  VERIFY(cl->call(lock_test_protocol::disconnect_server,id,ret)==lock_test_protocol::OK);
-  disconnected = true; 
-}
-
 lock_protocol::status
 lock_client_cache::acquire(lock_protocol::lockid_t lid)
 {
@@ -225,4 +217,12 @@ lock_client_cache::disconnect(bool kill, int &r)
   //TODO: Fix state of locks waiting to acquire/retry??
   VERIFY(pthread_mutex_unlock(&m_)==0);
   return lock_test_protocol::OK;
+}
+
+lock_test_protocol::status
+lock_client_cache::disconnect_server()
+{
+  lock_test_protocol::status ret = lock_test_protocol::OK;
+  VERIFY(cl->call(lock_test_protocol::disconnect_server,id,ret)==lock_test_protocol::OK);
+  disconnected = true; 
 }
