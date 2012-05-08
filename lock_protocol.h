@@ -27,4 +27,14 @@ class rlock_protocol {
     retry = 0x8002
   };
 };
-#endif 
+
+class lock_test_protocol {
+ public:
+  enum xxstatus {OK, RPCERR};
+  typedef int status;
+  enum rpc_numbers {
+    disconnect =  0x9001
+  };
+};
+
+#endif
