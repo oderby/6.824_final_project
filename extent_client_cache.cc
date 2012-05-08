@@ -66,6 +66,7 @@ extent_client_cache::getattr(extent_protocol::extentid_t eid,
     VERIFY(ret == extent_protocol::OK);
   }
   attr = local_extent_[eid].attr;
+  printf("version on getattr: %d\n",attr.version);
   return extent_protocol::OK;
 }
 
@@ -80,6 +81,14 @@ extent_client_cache::put(extent_protocol::extentid_t eid, std::string buf)
   ee.attr.ctime = seconds;
   ee.attr.mtime = seconds;
   ee.attr.size = buf.size()*sizeof(char);
+
+  if(local_extent_.count(eid)==0) {
+    ee.attr.version = 1;
+  } else {
+    ee.attr.version = local_extent_[eid].attr.version;
+  }
+
+
   ScopedLock ml(&m_);
   local_extent_[eid] = ee;
   printf("extent_client_cache: put %s for %llu\n",

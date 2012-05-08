@@ -30,6 +30,7 @@ int extent_server::put(extent_protocol::extentid_t id,unsigned int version, std:
 
   //if entry exists...
   if (table_.find(id)!=table_.end()) {
+    printf("current: %d - client: %d\n",table_[id].a.version,version);
     VERIFY(version == table_[id].a.version);
     f.a.version = version+1;
   }
