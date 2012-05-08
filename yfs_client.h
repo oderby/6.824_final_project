@@ -26,11 +26,13 @@ class yfs_client {
     unsigned long atime;
     unsigned long mtime;
     unsigned long ctime;
+    unsigned long version;
   };
   struct dirinfo {
     unsigned long atime;
     unsigned long mtime;
     unsigned long ctime;
+    unsigned long version;
   };
   struct dirent {
     std::string name;

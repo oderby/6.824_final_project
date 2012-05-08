@@ -92,6 +92,7 @@ yfs_client::getfile_helper(inum ino, fileinfo &fin)
     fin.mtime = a.mtime;
     fin.ctime = a.ctime;
     fin.size = a.size;
+    fin.version = a.version;
     printf("getfile %s -> sz %llu\n", yfs_client::filename(ino).c_str(), fin.size);
   }
   return ret;
