@@ -1,14 +1,14 @@
 // rsmtest client interface.
 
-#ifndef rsmtest_client_h
-#define rsmtest_client_h
+#ifndef disconnect_client_h
+#define disconnect_client_h
 
 #include <string>
 #include "lock_protocol.h"
 #include "rpc.h"
 
 // Client interface to the rsmtest server
-class rsmtest_client {
+class disconnect_client {
  protected:
   rpcc *cl;
  public:
