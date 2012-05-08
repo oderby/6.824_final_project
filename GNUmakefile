@@ -37,9 +37,8 @@ lab1: rpc/rpctest lock_server lock_tester lock_demo
 lab2: rpc/rpctest lock_server lock_tester lock_demo yfs_client extent_server
 lab3: yfs_client extent_server lock_server test-lab-3-b test-lab-3-c
 lab4: yfs_client extent_server lock_server lock_tester test-lab-3-b\
-	test-lab-3-c
-lab5: yfs_client extent_server lock_server test-lab-3-b test-lab-3-c\
-	disconnect_tester
+	 test-lab-3-c
+lab5: yfs_client extent_server lock_server test-lab-3-b test-lab-3-c disconnect_tester
 lab6: lock_server rsm_tester
 lab7: lock_tester lock_server rsm_tester
 
@@ -51,7 +50,7 @@ hfiles2=yfs_client.h extent_client.h extent_protocol.h extent_server.h
 hfiles3=lock_client_cache.h lock_server_cache.h handle.h tprintf.h
 hfiles4=log.h rsm.h rsm_protocol.h config.h paxos.h paxos_protocol.h rsm_state_transfer.h rsmtest_client.h tprintf.h\
 	extent_client_cache.h
-hfiles5=rsm_state_transfer.h rsm_client.h
+hfiles5=rsm_state_transfer.h rsm_client.h disconnect_client.h
 rsm_files = rsm.cc paxos.cc config.cc log.cc handle.cc
 
 rpclib=rpc/rpc.cc rpc/connection.cc rpc/pollmgr.cc rpc/thr_pool.cc rpc/jsl_log.cc gettime.cc
