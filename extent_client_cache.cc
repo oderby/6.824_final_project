@@ -112,7 +112,7 @@ extent_client_cache::flush(extent_protocol::extentid_t eid)
   if (local_extent_[eid].dirty) {
     printf("extent_client_cache: flush: %llu has been modified, putting %s on server\n"
            ,eid, local_extent_[eid].extent.c_str());
-    VERIFY(cl->call(extent_protocol::put, eid, local_extent_[eid].extent, r)
+    VERIFY(cl->call(extent_protocol::put, eid,local_extent_[eid].attr.version, local_extent_[eid].extent, r)
            ==extent_protocol::OK);
   }
   VERIFY(local_extent_.erase(eid)==1);

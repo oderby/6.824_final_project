@@ -33,7 +33,8 @@ class lock_test_protocol {
   enum xxstatus {OK, RPCERR};
   typedef int status;
   enum rpc_numbers {
-    disconnect =  0x9001
+    disconnect =  0x9001,
+    disconnect_server = 0x9002
   };
 };
 

@@ -103,6 +103,11 @@ lock_server_cache::release(lock_protocol::lockid_t lid, std::string id, int &r)
   return lock_protocol::OK;
 }
 
+int
+lock_server_cache::disconnect_server(std::string id, int &r) {
+  return lock_test_protocol::OK;
+}
+
 void* retry_wrapper(void* i) {
   struct lock_retry_info* info;
   info = (struct lock_retry_info*)i;

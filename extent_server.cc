@@ -14,7 +14,7 @@ extent_server::extent_server()
 }
 
 
-int extent_server::put(extent_protocol::extentid_t id, std::string buf, int &r)
+int extent_server::put(extent_protocol::extentid_t id,unsigned int version, std::string buf, int &r)
 {
   printf("extent_server: received put request of %llu %s\n",id, buf.c_str());
   extent_server::finfo f;
@@ -25,10 +25,20 @@ int extent_server::put(extent_protocol::extentid_t id, std::string buf, int &r)
   f.a.mtime = seconds;
   f.a.size = buf.size()*sizeof(char);
 
-  //TODO check if version of client file is correct version.
-  //TODO increment version
 
   VERIFY(pthread_mutex_lock(&m_)==0);
+
+  //if entry exists...
+  if (table_.find(id)!=table_.end()) {
+    VERIFY(version == table_[id].a.version);
+    f.a.version = version+1;
+  }
+
+  //else creating new file. set to version 1
+  else {
+    f.a.version = 1;
+  }
+    
   table_[id] = f;
   VERIFY(pthread_mutex_unlock(&m_)==0);
   r = extent_protocol::OK;

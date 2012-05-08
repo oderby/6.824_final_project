@@ -22,6 +22,7 @@ class lock_release_user {
 class lock_client_cache : public lock_client {
  private:
   class lock_release_user *lu;
+  bool disconnected;
   int rlock_port;
   std::string hostname;
   std::string id;
@@ -36,6 +37,7 @@ class lock_client_cache : public lock_client {
   virtual ~lock_client_cache() {};
   lock_protocol::status acquire(lock_protocol::lockid_t);
   lock_protocol::status release(lock_protocol::lockid_t);
+  lock_test_protocol::status disconnect_server();
   rlock_protocol::status revoke_handler(lock_protocol::lockid_t,
                                         int &);
   rlock_protocol::status retry_handler(lock_protocol::lockid_t,
