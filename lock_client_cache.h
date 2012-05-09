@@ -16,6 +16,9 @@
 class lock_release_user {
  public:
   virtual void dorelease(lock_protocol::lockid_t) = 0;
+  virtual bool isdirty(lock_protocol::lockid_t) = 0;
+  virtual void remove(lock_protocol::lockid_t) = 0;
+  virtual bool compareversion(lock_protocol::lockid_t) = 0;
   virtual ~lock_release_user() {};
 };
 
@@ -43,6 +46,7 @@ class lock_client_cache : public lock_client {
   bool disconnected;
   lock_protocol::status acquire_wo(lock_protocol::lockid_t);
   lock_protocol::status release_wo(lock_protocol::lockid_t);
+  void lock_acquired(lock_protocol::lockid_t);
 
  public:
   lock_client_cache(std::string xdst, class lock_release_user *l = 0);

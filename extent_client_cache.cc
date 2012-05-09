@@ -129,6 +129,23 @@ extent_client_cache::flush(extent_protocol::extentid_t eid)
   return r;
 }
 
+bool
+extent_client_cache::is_dirty(extent_protocol::extentid_t eid)
+{
+  ScopedLock ml(&m_);
+  return local_extent_[eid].dirty;
+}
+
+bool
+extent_client_cache::compare_version(extent_protocol::extentid_t eid)
+{
+  ScopedLock ml(&m_);
+  extent_entry ee;
+  VERIFY(cl->call(extent_protocol::getattr, eid, ee.attr)==extent_protocol::OK);
+  VERIFY(ee.attr.version >= local_extent_[eid].attr.version);
+  return ee.attr.version == local_extent_[eid].attr.version;
+}
+
 extent_user::extent_user(extent_client_cache* ec):
     ec_(ec)
 {}
@@ -137,4 +154,22 @@ void
 extent_user::dorelease(lock_protocol::lockid_t lid)
 {
   ec_->flush((extent_protocol::extentid_t) lid);
+}
+
+bool
+extent_user::isdirty(lock_protocol::lockid_t lid)
+{
+  return ec_->is_dirty((extent_protocol::extentid_t) lid);
+}
+
+void
+extent_user::remove(lock_protocol::lockid_t lid)
+{
+  ec_->remove((extent_protocol::extentid_t) lid);
+}
+
+bool
+extent_user::compareversion(lock_protocol::lockid_t lid)
+{
+  return ec_->compare_version((extent_protocol::extentid_t) lid);
 }

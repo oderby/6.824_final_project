@@ -82,24 +82,7 @@ lock_client_cache::acquire_wo(lock_protocol::lockid_t lid) {
             id.c_str(), pthread_self(), ret, lis, lid);
     if (lis == lock_protocol::ACQUIRING) {
       if (ret == lock_protocol::OK) {
-        if (lock_status_[lid].stale) {
-          //If our extent is not dirty, we can just unset the stale flag,
-          //and use the new extent from the server.
-          //Else if the server extent version is the same as local, then we can
-          //just use our own extent (we have most recent changes)
-          //Else, write/write conflict present, and we must merge!
-          /*
-          if (!lu->isdirty(lid)) {
-            lock_status_[lid].stale = false;
-            lu->remove(lid);
-          } else if (lu->compare_versions(lid)) {
-            lock_status_[lid].stale = false;
-          } else {
-            //resolve conflicts!
-          }
-          */
-        }
-        lock_status_[lid].state = lock_protocol::LOCKED;
+        lock_acquired(lid);
       } else if (ret == lock_protocol::RETRY) {
         //wait for retry_handler invocation
         lock_status_[lid].state = lock_protocol::WAITING;
@@ -113,14 +96,7 @@ lock_client_cache::acquire_wo(lock_protocol::lockid_t lid) {
       }
     } else if (lis == lock_protocol::WAITING) {
       if (ret == lock_protocol::OK) {
-        if (lock_status_[lid].stale) {
-          //If our extent is not dirty, we can just unset the stale flag,
-          //and use the new extent from the server.
-          //Else if the server extent version is the same as local, then we can
-          //just use our own extent (we have most recent changes)
-          //Else, write/write conflict present, and we must merge!
-        }
-        lock_status_[lid].state = lock_protocol::LOCKED;
+        lock_acquired(lid);
       } else if (ret == lock_protocol::RETRY) {
         // must have received retry RPC out of order, so just go ahead and retry
         // acq
@@ -137,6 +113,29 @@ lock_client_cache::acquire_wo(lock_protocol::lockid_t lid) {
   }
 
   return ret;
+}
+
+void
+lock_client_cache::lock_acquired(lock_protocol::lockid_t lid)
+{
+  if (lock_status_[lid].stale) {
+    //If our extent is not dirty, we can just unset the stale flag,
+    //and use the new extent from the server.
+    //Else if the server extent version is the same as local, then we can
+    //just use our own extent (we have most recent changes)
+    //Else, write/write conflict present, and we must merge!
+
+    if (!lu->isdirty(lid)) {
+      lock_status_[lid].stale = false;
+      lu->remove(lid);
+    } else if (lu->compareversion(lid)) {
+      lock_status_[lid].stale = false;
+    } else {
+      //resolve conflicts!
+      VERIFY(0);
+    }
+  }
+  lock_status_[lid].state = lock_protocol::LOCKED;
 }
 
 lock_protocol::status
