@@ -25,12 +25,24 @@ class lock_client_cache : public lock_client {
   int rlock_port;
   std::string hostname;
   std::string id;
-  enum lockstate { NONE, ACQUIRING, WAITING, FREE, LOCKED, RELEASING, FREE_RLS };
+  struct lockstate {
+    lock_protocol::state state;
+    // is it possible that our state is stale?
+    bool stale;
+   public:
+    lockstate() {
+      state = lock_protocol::NONE;
+      stale = false;
+    }
+  };
+
   std::map<lock_protocol::lockid_t, lockstate> lock_status_;
   pthread_mutex_t m_; //protect lock_status_
   pthread_cond_t wait_retry_;
   pthread_cond_t wait_release_;
   bool disconnected;
+  lock_protocol::status acquire_wo(lock_protocol::lockid_t);
+  lock_protocol::status release_wo(lock_protocol::lockid_t);
 
  public:
   lock_client_cache(std::string xdst, class lock_release_user *l = 0);

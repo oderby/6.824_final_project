@@ -205,7 +205,10 @@ fuseserver_write(fuse_req_t req, fuse_ino_t ino,
     fuse_reply_err(req, EISDIR);
   }
   yfs_client::status ret = yfs->write((yfs_client::inum)ino, buf, off, size);
-  if(ret != yfs_client::OK) {
+  if (ret == yfs_client::DISCONNECTED) {
+    fuse_reply_err(req, ENETDOWN);
+  }
+  else if(ret != yfs_client::OK) {
     fuse_reply_err(req, EIO);
   }
 
