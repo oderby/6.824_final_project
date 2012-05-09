@@ -44,6 +44,10 @@ lock_client_cache::acquire(lock_protocol::lockid_t lid)
 //Assumes mutex is held!
 lock_protocol::status
 lock_client_cache::acquire_wo(lock_protocol::lockid_t lid) {
+  if (disconnected) {
+    VERIFY(lock_status_[lid].state != lock_protocol::RELEASING);
+    VERIFY(lock_status_[lid].state != lock_protocol::FREE_RLS);
+  }
   lock_protocol::status ret = lock_protocol::OK;
   bool try_acquire = false;
   while (lock_status_[lid].state != lock_protocol::NONE
@@ -57,6 +61,11 @@ lock_client_cache::acquire_wo(lock_protocol::lockid_t lid) {
           id.c_str(),pthread_self(), lid, lock_status_[lid].state);
   //Check state
   lock_protocol::state lis = lock_status_[lid].state;
+  if (disconnected && lis == lock_protocol::NONE) {
+    //Disconnected, can't acquire lock atm
+    return lock_protocol::DISCONNECTED;
+  }
+
   if (lock_status_[lid].stale || lis == lock_protocol::NONE) {
     try_acquire = true;
     lock_status_[lid].state = lock_protocol::ACQUIRING;
@@ -75,6 +84,11 @@ lock_client_cache::acquire_wo(lock_protocol::lockid_t lid) {
             id.c_str(), pthread_self(), r, ret);
     VERIFY(r == lock_protocol::OK);
     VERIFY(pthread_mutex_lock(&m_)==0);
+    if (disconnected || ret == lock_protocol::DISCONNECTED) {
+      lock_status_[lid].state = lock_protocol::NONE;
+      ret = lock_protocol::DISCONNECTED;
+      break;
+    }
     try_acquire = false;
     // need to grab (possibly changed) lis
     lis = lock_status_[lid].state;
@@ -164,6 +178,7 @@ lock_client_cache::release_wo(lock_protocol::lockid_t lid)
     VERIFY(pthread_cond_signal(&wait_release_)==0);
   } else if (lis == lock_protocol::RELEASING) {
     VERIFY(!lock_status_[lid].stale);
+    VERIFY(!disconnected);
     lu->dorelease(lid);
     VERIFY(pthread_mutex_unlock(&m_)==0);
     // release lock to lock server
@@ -191,6 +206,11 @@ lock_client_cache::revoke_handler(lock_protocol::lockid_t lid, int &r)
 {
   r = rlock_protocol::OK;
   VERIFY(pthread_mutex_lock(&m_)==0);
+  if (disconnected) {
+    r = rlock_protocol::DISCONNECTED;
+    VERIFY(pthread_mutex_unlock(&m_)==0);
+    return rlock_protocol::DISCONNECTED;
+  }
   lock_protocol::state lis = lock_status_[lid].state;
   tprintf("lock_client_cache(%s:%lu): received revoke of lock %llu in state %d\n",
           id.c_str(), pthread_self(), lid, lis);
@@ -243,6 +263,11 @@ lock_client_cache::retry_handler(lock_protocol::lockid_t lid, int &r)
 {
   r = rlock_protocol::OK;
   VERIFY(pthread_mutex_lock(&m_)==0);
+  if (disconnected) {
+    r = rlock_protocol::DISCONNECTED;
+    VERIFY(pthread_mutex_unlock(&m_)==0);
+    return rlock_protocol::DISCONNECTED;
+  }
   lock_protocol::state lis = lock_status_[lid].state;
   tprintf("lock_client_cache(%s:%lu): received retry of lock %llu in state %d\n",
           id.c_str(), pthread_self(), lid, lis);
@@ -264,28 +289,38 @@ lock_client_cache::disconnect(bool kill, int &r)
   VERIFY(pthread_mutex_lock(&m_)==0);
   tprintf("lock_client_cache(%s:%lu): received disconnect rpc %d\n",
           id.c_str(), pthread_self(), kill);
-  if (kill) {
-    int ret = disconnect_server();
-    //TODO: On disconnect: Any lock we have in state RELEASING -> LOCKED
-    //                     Any lock we have in state FREE_RLS -> NONE (extent is invalidated)
-    //                     What about states ACQUIRING and WAITING??
-  } else {
-    //TODO: On reconnect: Any locks not in state NONE, try to reacquire
+  if (disconnected != kill) {
     std::map<lock_protocol::lockid_t, lockstate>::iterator i;
-    for (i = lock_status_.begin(); i!=lock_status_.end(); i++) {
-      lock_protocol::state lis = i->second.state;
-      VERIFY(lis != lock_protocol::FREE_RLS);
-      VERIFY(lis != lock_protocol::RELEASING);
-      VERIFY(lis != lock_protocol::WAITING);
-      VERIFY(lis != lock_protocol::ACQUIRING);
-      if (lis != lock_protocol::NONE) {
-        lock_status_[i->first].stale = true;
-        VERIFY(acquire_wo(i->first)==lock_protocol::OK);
-        VERIFY(release_wo(i->first)==lock_protocol::OK);
+    if (kill) {
+      int ret = disconnect_server();
+      //TODO: On disconnect: Any lock we have in state RELEASING -> LOCKED
+      //                     Any lock we have in state FREE_RLS -> NONE (extent is invalidated)
+      //                     What about states ACQUIRING and WAITING??
+      for (i = lock_status_.begin(); i!=lock_status_.end(); i++) {
+        lock_protocol::state lis = i->second.state;
+        if (lis == lock_protocol::RELEASING) {
+          lock_status_[i->first].state = lock_protocol::LOCKED;
+        } else if (lis == lock_protocol::FREE_RLS) {
+          lock_status_[i->first].state = lock_protocol::NONE;
+        }
+      }
+    } else {
+      //TODO: On reconnect: Any locks not in state NONE, try to reacquire
+      for (i = lock_status_.begin(); i!=lock_status_.end(); i++) {
+        lock_protocol::state lis = i->second.state;
+        VERIFY(lis != lock_protocol::FREE_RLS);
+        VERIFY(lis != lock_protocol::RELEASING);
+        VERIFY(lis != lock_protocol::WAITING);
+        VERIFY(lis != lock_protocol::ACQUIRING);
+        if (lis != lock_protocol::NONE) {
+          lock_status_[i->first].stale = true;
+          VERIFY(acquire_wo(i->first)==lock_protocol::OK);
+          VERIFY(release_wo(i->first)==lock_protocol::OK);
+        }
       }
     }
+    disconnected = kill;
   }
-  disconnected = kill;
   VERIFY(pthread_mutex_unlock(&m_)==0);
   return lock_test_protocol::OK;
 }
