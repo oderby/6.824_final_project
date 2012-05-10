@@ -138,8 +138,9 @@ lock_client_cache::lock_acquired(lock_protocol::lockid_t lid)
     //Else if the server extent version is the same as local, then we can
     //just use our own extent (we have most recent changes)
     //Else, write/write conflict present, and we must merge!
-
-    if (!lu->isdirty(lid)) {
+    if (!lu->exists(lid)) {
+      lock_status_[lid].stale = false;
+    } else if (!lu->isdirty(lid)) {
       lock_status_[lid].stale = false;
       lu->remove(lid);
     } else if (lu->compareversion(lid)) {
@@ -302,8 +303,11 @@ lock_client_cache::disconnect(bool kill, int &r)
           lock_status_[i->first].state = lock_protocol::LOCKED;
         } else if (lis == lock_protocol::FREE_RLS) {
           lock_status_[i->first].state = lock_protocol::NONE;
+        } else if (lis == lock_protocol::WAITING) {
+          lock_status_[i->first].state = lock_protocol::ACQUIRING;
         }
       }
+      VERIFY(pthread_cond_signal(&wait_retry_)==0);
     } else {
       //TODO: On reconnect: Any locks not in state NONE, try to reacquire
       for (i = lock_status_.begin(); i!=lock_status_.end(); i++) {

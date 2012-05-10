@@ -130,6 +130,13 @@ extent_client_cache::flush(extent_protocol::extentid_t eid)
 }
 
 bool
+extent_client_cache::exists(extent_protocol::extentid_t eid)
+{
+  ScopedLock ml(&m_);
+  return local_extent_.count(eid)>0;
+}
+
+bool
 extent_client_cache::is_dirty(extent_protocol::extentid_t eid)
 {
   ScopedLock ml(&m_);
@@ -154,6 +161,12 @@ void
 extent_user::dorelease(lock_protocol::lockid_t lid)
 {
   ec_->flush((extent_protocol::extentid_t) lid);
+}
+
+bool
+extent_user::exists(lock_protocol::lockid_t lid)
+{
+  return ec_->exists((extent_protocol::extentid_t) lid);
 }
 
 bool
