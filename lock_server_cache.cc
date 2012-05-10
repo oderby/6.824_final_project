@@ -105,7 +105,37 @@ lock_server_cache::release(lock_protocol::lockid_t lid, std::string id, int &r)
 
 int
 lock_server_cache::disconnect_server(std::string id, int &r) {
-  return lock_test_protocol::OK;
+  lock_protocol::lockid_t lid;
+  VERIFY(pthread_mutex_lock(&m_)==0);
+  tprintf("disconnect RPC from %s\n", id.c_str());
+
+  std::vector<lock_retry_info> to_release;
+  std::map<lock_protocol::lockid_t, lockinfo>::iterator i;
+  for (i = lock_status_.begin(); i!=lock_status_.end(); i++) {
+    if (i->second.owner.compare(id)!=0) { continue; }
+
+    lid = i->first;
+
+    lock_retry_info* info = new lock_retry_info();
+    info->lid = lid;
+    info->waiting = lock_status_[lid].waiting;
+
+    to_release.push_back(*info);
+
+    lock_status_[lid].locked = false;
+    lock_status_[lid].owner.clear();
+    lock_status_[lid].waiting = std::set<std::string>();
+  }
+  VERIFY(pthread_mutex_unlock(&m_)==0);
+
+  std::vector<lock_retry_info>::iterator it;
+  for (it=to_release.begin();it!=to_release.end();i++) {
+    pthread_t tid;
+    VERIFY(pthread_create(&tid, NULL, retry_wrapper, (void *) &(*it))==0);
+  }
+
+  r = lock_protocol::OK;
+  return lock_protocol::OK;
 }
 
 void* retry_wrapper(void* i) {
