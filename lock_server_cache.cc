@@ -112,28 +112,34 @@ lock_server_cache::disconnect_server(std::string id, int &r) {
   std::vector<lock_retry_info> to_release;
   std::map<lock_protocol::lockid_t, lockinfo>::iterator i;
   for (i = lock_status_.begin(); i!=lock_status_.end(); i++) {
+    tprintf("server disconnect examining lock %llu\n", i->first);
     if (i->second.owner.compare(id)!=0) { continue; }
 
     lid = i->first;
 
-    lock_retry_info* info = new lock_retry_info();
-    info->lid = lid;
-    info->waiting = lock_status_[lid].waiting;
+    if (!lock_status_[lid].waiting.empty()) {
+      lock_retry_info* info = new lock_retry_info();
+      info->lid = lid;
+      info->waiting = lock_status_[lid].waiting;
 
-    to_release.push_back(*info);
+      to_release.push_back(*info);
+      tprintf("server disconnect pushed back!\n");
+    }
 
     lock_status_[lid].locked = false;
     lock_status_[lid].owner.clear();
     lock_status_[lid].waiting = std::set<std::string>();
+    tprintf("server disconnect lock owned by disconnected!\n");
   }
   VERIFY(pthread_mutex_unlock(&m_)==0);
 
   std::vector<lock_retry_info>::iterator it;
-  for (it=to_release.begin();it!=to_release.end();i++) {
+  for (it=to_release.begin();it!=to_release.end();it++) {
     pthread_t tid;
     VERIFY(pthread_create(&tid, NULL, retry_wrapper, (void *) &(*it))==0);
+    tprintf("server spun off retry thread\n");
   }
-
+  tprintf("server disconnect done!\n");
   r = lock_protocol::OK;
   return lock_protocol::OK;
 }
