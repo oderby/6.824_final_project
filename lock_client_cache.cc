@@ -333,7 +333,8 @@ lock_client_cache::disconnect(bool kill, int &r)
   if (disconnected != kill) {
     std::map<lock_protocol::lockid_t, lockstate>::iterator i;
     if (kill) {
-      int ret = disconnect_server();
+      VERIFY(disconnect_server()==lock_protocol::OK);
+      disconnected = true;
       //TODO: On disconnect: Any lock we have in state RELEASING -> LOCKED
       //                     Any lock we have in state FREE_RLS -> NONE (extent is invalidated)
       //                     What about states ACQUIRING and WAITING??
@@ -349,6 +350,7 @@ lock_client_cache::disconnect(bool kill, int &r)
       }
       VERIFY(pthread_cond_signal(&wait_retry_)==0);
     } else {
+      disconnected = false;
       //TODO: On reconnect: Any locks not in state NONE, try to reacquire
       for (i = lock_status_.begin(); i!=lock_status_.end(); i++) {
         lock_protocol::state lis = i->second.state;
@@ -356,6 +358,7 @@ lock_client_cache::disconnect(bool kill, int &r)
         VERIFY(lis != lock_protocol::RELEASING);
         VERIFY(lis != lock_protocol::WAITING);
         VERIFY(lis != lock_protocol::ACQUIRING);
+	printf("Reconnecting. Lock %llu with state %d\n",i->first,lis);
         if (lis != lock_protocol::NONE) {
           lock_status_[i->first].stale = true;
           VERIFY(acquire_wo(i->first)==lock_protocol::OK);

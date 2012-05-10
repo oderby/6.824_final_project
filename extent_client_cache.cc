@@ -83,7 +83,7 @@ extent_client_cache::put(extent_protocol::extentid_t eid, std::string buf)
   ee.attr.size = buf.size()*sizeof(char);
 
   if(local_extent_.count(eid)==0) {
-    ee.attr.version = 1;
+    ee.attr.version = 0;
   } else {
     ee.attr.version = local_extent_[eid].attr.version;
   }
@@ -148,7 +148,16 @@ extent_client_cache::compare_version(extent_protocol::extentid_t eid)
 {
   ScopedLock ml(&m_);
   extent_entry ee;
-  VERIFY(cl->call(extent_protocol::getattr, eid, ee.attr)==extent_protocol::OK);
+  int ret;
+  ret = cl->call(extent_protocol::getattr, eid, ee.attr);
+  if (ret==extent_protocol::NOENT) {
+    if (local_extent_[eid].attr.version==0) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+  VERIFY(ret==extent_protocol::OK);
   VERIFY(ee.attr.version >= local_extent_[eid].attr.version);
   return ee.attr.version == local_extent_[eid].attr.version;
 }
