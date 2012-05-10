@@ -129,11 +129,15 @@ get_rand_num(void)
 yfs_client::status
 yfs_client::create(inum p_ino, const char* name, inum& new_ino)
 {
-  ScopedRemoteLock ml(lc, p_ino);
+  if (lc->acquire(p_ino)==lock_protocol::DISCONNECTED) {
+    return yfs_client::DISCONNECTED;
+  }
+
   // make sure parent directory exists
   std::string p_dir_str;
   status ret = ext2yfs(ec->get(p_ino, p_dir_str));
   if (ret != OK) {
+    lc->release(p_ino);
     return ret;
   }
   yfs_dir p_dir(p_dir_str);
@@ -141,6 +145,7 @@ yfs_client::create(inum p_ino, const char* name, inum& new_ino)
   // ensure we don't already have a file with the same name in this directory
   d.name = std::string(name);
   if (p_dir.exists(d.name)) {
+    lc->release(p_ino);
     return EXIST;
   }
 
@@ -170,18 +175,21 @@ yfs_client::create(inum p_ino, const char* name, inum& new_ino)
     }
   }
   lc->release((lock_protocol::lockid_t) new_ino);
-
+  lc->release(p_ino);
   return ret;
 }
 
 yfs_client::status
 yfs_client::mkdir(inum p_ino, const char* name, inum& new_ino)
 {
-  ScopedRemoteLock ml(lc, p_ino);
+    if (lc->acquire(p_ino)==lock_protocol::DISCONNECTED) {
+    return yfs_client::DISCONNECTED;
+  }
   // make sure parent directory exists
   std::string p_dir_str;
   status ret = ext2yfs(ec->get(p_ino, p_dir_str));
   if (ret != OK) {
+    lc->release(p_ino);
     return ret;
   }
   yfs_dir p_dir(p_dir_str);
@@ -189,6 +197,7 @@ yfs_client::mkdir(inum p_ino, const char* name, inum& new_ino)
   // ensure we don't already have a file with the same name in this directory
   d.name = std::string(name);
   if (p_dir.exists(d.name)) {
+    lc->release(p_ino);
     return EXIST;
   }
 
@@ -218,6 +227,7 @@ yfs_client::mkdir(inum p_ino, const char* name, inum& new_ino)
     }
   }
   lc->release((lock_protocol::lockid_t) new_ino);
+  lc->release(p_ino);
   return ret;
 }
 
@@ -226,10 +236,13 @@ yfs_client::unlink(inum p_ino, const char* name)
 {
   // make sure parent directory exists
   std::string p_dir_str;
-  ScopedRemoteLock ml(lc, p_ino);
+    if (lc->acquire(p_ino)==lock_protocol::DISCONNECTED) {
+    return yfs_client::DISCONNECTED;
+  }
   printf("yfs_client::unlink %s %s\n",filename(p_ino).c_str(), name);
   status ret = ext2yfs(ec->get(p_ino, p_dir_str));
   if (ret != OK) {
+    lc->release(p_ino);
     return ret;
   }
   yfs_dir p_dir(p_dir_str);
@@ -239,23 +252,32 @@ yfs_client::unlink(inum p_ino, const char* name)
   std::string f_name(name);
   if (!p_dir.exists(f_name)) {
     printf("file %s doesn't exist in dir %s!\n", name, p_dir_str.c_str());
+    lc->release(p_ino);
     return NOENT;
   }
 
   inum f_ino = p_dir.get(f_name);
   if (isdir(f_ino)) {
+    lc->release(p_ino);
     return IOERR;
   }
-  ScopedRemoteLock fl(lc, f_ino);
+  if (lc->acquire(f_ino)==lock_protocol::DISCONNECTED) {
+    lc->release(p_ino);
+    return yfs_client::DISCONNECTED;
+  }
 
   //attempt to remove file entry from directory
   p_dir.rem(f_name);
   ret = ext2yfs(ec->put(p_ino, p_dir.to_string()));
   if (ret != OK) {
     printf("unlink: error updating dir %s for file %s - %d\n", p_dir_str.c_str(), name, ret);
+    lc->release(f_ino);
+    lc->release(p_ino);
     return ret;
   }
   //try to remove the file extent
+  lc->release(f_ino);
+  lc->release(p_ino);
   return ext2yfs(ec->remove(f_ino));
 }
 
@@ -264,18 +286,23 @@ yfs_client::lookup(inum p_ino, const char* name, inum& f_ino)
 {
   // make sure parent directory exists
   std::string p_dir_str;
-  ScopedRemoteLock fl(lc, p_ino);
+  if (lc->acquire(p_ino)==lock_protocol::DISCONNECTED) {
+    return yfs_client::DISCONNECTED;
+  }
   status ret = ext2yfs(ec->get(p_ino, p_dir_str));
   if (ret != OK) {
+    lc->release(p_ino);
     return ret;
   }
   yfs_dir p_dir(p_dir_str);
   // ensure file exists
   std::string f_name(name);
   if (!p_dir.exists(f_name)) {
+    lc->release(p_ino);
     return NOENT;
   }
   f_ino = p_dir.get(f_name);
+  lc->release(p_ino);
   return OK;
 }
 
@@ -286,30 +313,37 @@ yfs_client::getdir_contents(inum ino, yfs_dir** dir)
   // You modify this function for Lab 3
   // - hold and release the directory lock
 
-  ScopedRemoteLock fl(lc, ino);
+  if (lc->acquire(ino)==lock_protocol::DISCONNECTED) {
+    return yfs_client::DISCONNECTED;
+  }
   std::string dir_str;
   status ret = ext2yfs(ec->get(ino, dir_str));
   if (ret == OK) {
     printf("getdir_contents found dir %s\n",dir_str.c_str());
     *dir = new yfs_dir(dir_str);
   }
+  lc->release(ino);
   return ret;
 }
 
 yfs_client::status
 yfs_client::setattr(inum ino, unsigned int new_size)
 {
-  ScopedRemoteLock ml(lc, ino);
+    if (lc->acquire(ino)==lock_protocol::DISCONNECTED) {
+    return yfs_client::DISCONNECTED;
+  }
   printf("yfs_client::setattr %s->%u\n",yfs_client::filename(ino).c_str(), new_size);
   std::string f_data;
   status ret = ext2yfs(ec->get(ino, f_data));
   if (ret != OK) {
+    lc->release(ino);
     return ret;
   }
 
   fileinfo fin;
   ret = getfile_helper(ino, fin);
   if (ret != OK) {
+    lc->release(ino);
     return ret;
   }
 
@@ -328,17 +362,21 @@ yfs_client::setattr(inum ino, unsigned int new_size)
     }
     ret = ext2yfs(ec->put(ino, f_data));
   }
+  lc->release(ino);
   return ret;
 }
 
 yfs_client::status
 yfs_client::read(inum ino, unsigned int off, unsigned int size, std::string & buf)
 {
-  ScopedRemoteLock fl(lc, ino);
+    if (lc->acquire(ino)==lock_protocol::DISCONNECTED) {
+    return yfs_client::DISCONNECTED;
+  }
   printf("yfs_client::read %u %u %s\n",off, size, yfs_client::filename(ino).c_str());
   std::string f_data;
   status ret = ext2yfs(ec->get(ino, f_data));
   if (ret != OK) {
+    lc->release(ino);
     return ret;
   }
   // if @off is as big as file, read zero bytes
@@ -346,18 +384,23 @@ yfs_client::read(inum ino, unsigned int off, unsigned int size, std::string & bu
     buf.assign(f_data,off,size);
   }
   printf("read %s from %s\n",buf.c_str(),yfs_client::filename(ino).c_str());
+  lc->release(ino);
   return OK;
 }
 
 yfs_client::status
 yfs_client::write(inum ino, const char * buf, unsigned int off, unsigned int size)
 {
-  ScopedRemoteLock ml(lc, ino);
+  if (lc->acquire(ino)==lock_protocol::DISCONNECTED) {
+    return yfs_client::DISCONNECTED;
+  }
+
   printf("yfs_client::write %u %u %s->%s\n",off, size, buf,yfs_client::filename(ino).c_str());
   std::string f_data;
   // get the current file
   status ret = ext2yfs(ec->get(ino, f_data));
   if (ret != OK) {
+    lc->release(ino);
     return ret;
   }
 
@@ -377,8 +420,10 @@ yfs_client::write(inum ino, const char * buf, unsigned int off, unsigned int siz
   // send the new data back to disk
   ret = ext2yfs(ec->put(ino, new_data));
   if (ret != OK) {
+    lc->release(ino);
     return ret;
   }
+  lc->release(ino);
   return OK;
 }
 
