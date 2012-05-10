@@ -5,8 +5,11 @@
 #include "rpc.h"
 #include <sstream>
 #include <iostream>
+#include <ifaddrs.h>
 #include <stdio.h>
 #include "tprintf.h"
+#include <netdb.h>
+#include <net/if.h>
 
 
 lock_client_cache::lock_client_cache(std::string xdst,
@@ -20,8 +23,39 @@ lock_client_cache::lock_client_cache(std::string xdst,
   rlsrpc->reg(rlock_protocol::retry, this, &lock_client_cache::retry_handler);
   rlsrpc->reg(lock_test_protocol::disconnect, this, &lock_client_cache::disconnect);
 
-  const char *hname;
-  hname = "127.0.0.1";
+  struct ifaddrs *ifaddr, *ifa;
+  int family, s;
+  char hname[NI_MAXHOST];
+
+  if (getifaddrs(&ifaddr) == -1) {
+    perror("getifaddrs");
+    exit(EXIT_FAILURE);
+  }
+
+  /* Walk through linked list, maintaining head pointer so we
+     can free list later */
+
+  for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+    if (ifa->ifa_addr == NULL)
+      continue;
+
+    family = ifa->ifa_addr->sa_family;
+
+    /* For an AF_INET* interface address, display the address */
+
+    if (family == AF_INET && !(ifa->ifa_flags&IFF_LOOPBACK)) {
+      s = getnameinfo(ifa->ifa_addr,
+                      sizeof(struct sockaddr_in),
+                      hname, NI_MAXHOST, NULL, 0, NI_NUMERICHOST);
+      if (s != 0) {
+        printf("getnameinfo() failed: %s\n", gai_strerror(s));
+        exit(EXIT_FAILURE);
+      }
+      break;
+    }
+  }
+
+  freeifaddrs(ifaddr);
   std::ostringstream host;
   host << hname << ":" << rlsrpc->port();
   id = host.str();
