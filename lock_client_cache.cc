@@ -142,9 +142,15 @@ lock_client_cache::lock_acquired(lock_protocol::lockid_t lid)
     if (!lu->isdirty(lid)) {
       lock_status_[lid].stale = false;
       lu->remove(lid);
+      //TODO
+      //should we force a get from server here?
     } else if (lu->compareversion(lid)) {
       lock_status_[lid].stale = false;
     } else {
+      //TODO
+      //create new file with same contents as local conflicting file
+      //flush new file
+      //replace extent contents of old file with server extent contents
       //resolve conflicts!
       VERIFY(0);
     }
