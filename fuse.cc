@@ -137,6 +137,8 @@ fuseserver_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr,
       if(ret != yfs_client::OK)
         fuse_reply_err(req, EIO);
       fuse_reply_attr(req, &st, 0);
+    } else if (ret == yfs_client::DISCONNECTED) {
+      fuse_reply_err(req, ENETDOWN);
     } else {
       fuse_reply_err(req, EIO);
     }
@@ -169,7 +171,9 @@ fuseserver_read(fuse_req_t req, fuse_ino_t ino, size_t size,
   }
   std::string buf;
   yfs_client::status ret = yfs->read((yfs_client::inum)ino, off, size, buf);
-  if(ret != yfs_client::OK) {
+  if (ret == yfs_client::DISCONNECTED) {
+    fuse_reply_err(req, ENETDOWN);
+  } else if(ret != yfs_client::OK) {
     fuse_reply_err(req, EIO);
   }
 
@@ -207,8 +211,7 @@ fuseserver_write(fuse_req_t req, fuse_ino_t ino,
   yfs_client::status ret = yfs->write((yfs_client::inum)ino, buf, off, size);
   if (ret == yfs_client::DISCONNECTED) {
     fuse_reply_err(req, ENETDOWN);
-  }
-  else if(ret != yfs_client::OK) {
+  } else if(ret != yfs_client::OK) {
     fuse_reply_err(req, EIO);
   }
 
@@ -311,7 +314,7 @@ fuseserver_lookup(fuse_req_t req, fuse_ino_t parent, const char *name)
     e.ino = (fuse_ino_t) f_ino;
     struct stat st;
     ret = getattr((yfs_client::inum) f_ino, st);
-    if(ret == yfs_client::OK) {
+    if (ret == yfs_client::OK) {
       found = true;
       e.attr = st;
     }
@@ -321,10 +324,13 @@ fuseserver_lookup(fuse_req_t req, fuse_ino_t parent, const char *name)
   }
 
   // You fill this in for Lab 2
-  if (found)
+  if (found) {
     fuse_reply_entry(req, &e);
-  else
+  } else if (ret == yfs_client::DISCONNECTED) {
+    fuse_reply_err(req, ENETDOWN);
+  } else {
     fuse_reply_err(req, ENOENT);
+  }
 }
 
 
@@ -395,7 +401,11 @@ fuseserver_readdir(fuse_req_t req, fuse_ino_t ino, size_t size,
     reply_buf_limited(req, b.p, b.size, off, size);
   } else {
     printf("readdir ret=%d, bool=%d\n",ret, dir!=NULL);
-    fuse_reply_err(req, ENOTDIR);
+    if (ret == yfs_client::DISCONNECTED) {
+      fuse_reply_err(req, ENETDOWN);
+    } else {
+      fuse_reply_err(req, ENOTDIR);
+    }
   }
 
   free(b.p);
@@ -444,6 +454,8 @@ fuseserver_mkdir(fuse_req_t req, fuse_ino_t parent, const char *name,
     }
   } else if (ret == yfs_client::EXIST) {
     fuse_reply_err(req, EEXIST);
+  } else if (ret == yfs_client::DISCONNECTED) {
+    fuse_reply_err(req, ENETDOWN);
   } else {
     fuse_reply_err(req, EIO);
   }
@@ -468,6 +480,8 @@ fuseserver_unlink(fuse_req_t req, fuse_ino_t parent, const char *name)
     fuse_reply_err(req, 0);
   } else if (ret == yfs_client::NOENT) {
     fuse_reply_err(req, ENOENT);
+  } else if (ret == yfs_client::DISCONNECTED) {
+    fuse_reply_err(req, ENETDOWN);
   } else {
     fuse_reply_err(req, EIO);
   }
