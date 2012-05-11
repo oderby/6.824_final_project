@@ -20,6 +20,8 @@ class lock_release_user {
   virtual bool isdirty(lock_protocol::lockid_t) = 0;
   virtual void remove(lock_protocol::lockid_t) = 0;
   virtual bool compareversion(lock_protocol::lockid_t) = 0;
+  virtual void make_copy(lock_protocol::lockid_t, lock_protocol::lockid_t,
+                         lock_protocol::lockid_t) = 0;
   virtual ~lock_release_user() {};
 };
 

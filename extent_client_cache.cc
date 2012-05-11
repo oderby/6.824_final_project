@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <time.h>
 #include "slock.h"
+#include "yfs_client.h"
 
 // The calls assume that the caller holds a lock on the extent
 
@@ -55,7 +56,7 @@ extent_client_cache::get_helper(extent_protocol::extentid_t eid)
 
 extent_protocol::status
 extent_client_cache::getattr(extent_protocol::extentid_t eid,
-		       extent_protocol::attr &attr)
+                             extent_protocol::attr &attr)
 {
   ScopedLock ml(&m_);
   if(local_extent_.count(eid)==0) {
@@ -70,6 +71,21 @@ extent_client_cache::getattr(extent_protocol::extentid_t eid,
   return extent_protocol::OK;
 }
 
+extent_protocol::status
+extent_client_cache::rename(extent_protocol::extentid_t eid,
+                            std::string name)
+{
+  ScopedLock ml(&m_);
+  if(local_extent_.count(eid)==0) {
+    extent_protocol::status ret = extent_protocol::OK;
+    if ((ret = get_helper(eid)) == extent_protocol::NOENT) {
+      return ret;
+    }
+    VERIFY(ret == extent_protocol::OK);
+  }
+  local_extent_[eid].attr.name = name;
+  return extent_protocol::OK;
+}
 extent_protocol::status
 extent_client_cache::put(extent_protocol::extentid_t eid, std::string buf)
 {
@@ -121,8 +137,8 @@ extent_client_cache::flush(extent_protocol::extentid_t eid)
   if (local_extent_[eid].dirty) {
     printf("extent_client_cache: flush: %llu has been modified, putting %s on server\n"
            ,eid, local_extent_[eid].extent.c_str());
-    VERIFY(cl->call(extent_protocol::put, eid,local_extent_[eid].attr.version, local_extent_[eid].extent, r)
-           ==extent_protocol::OK);
+    VERIFY(cl->call(extent_protocol::put, eid,local_extent_[eid].attr,
+                    local_extent_[eid].extent, r)==extent_protocol::OK);
   }
   VERIFY(local_extent_.erase(eid)==1);
   //VERIFY(pthread_mutex_unlock(&m_)==0);
@@ -194,4 +210,35 @@ bool
 extent_user::compareversion(lock_protocol::lockid_t lid)
 {
   return ec_->compare_version((extent_protocol::extentid_t) lid);
+}
+
+void
+extent_user::make_copy(lock_protocol::lockid_t lid,
+                       lock_protocol::lockid_t new_lid,
+                       lock_protocol::lockid_t tmp_lid)
+{
+  std::string buf_cpy;
+  VERIFY(ec_->get((extent_protocol::extentid_t) lid, buf_cpy)==0);
+  extent_protocol::attr a;
+  VERIFY(ec_->getattr((extent_protocol::extentid_t) lid, a)==0);
+  VERIFY(ec_->put((extent_protocol::extentid_t) new_lid, buf_cpy)==0);
+
+  std::string tmp_dir_str;
+  VERIFY(ec_->get((extent_protocol::extentid_t) tmp_lid, tmp_dir_str)==0);
+  yfs_dir tmp_dir(tmp_dir_str);
+
+  std::string name = a.name;
+  int i = 1;
+  while(tmp_dir.exists(name)) {
+    std::ostringstream ost;
+    ost << name << "." << i;
+    name = ost.str();
+    i++;
+  }
+  yfs_client::dirent d;
+  d.name = name;
+  d.inum = (yfs_client::inum) new_lid;
+  tmp_dir.add(d);
+  VERIFY(ec_->rename((extent_protocol::extentid_t) new_lid, d.name)==0);
+  VERIFY(ec_->put((extent_protocol::extentid_t) tmp_lid, tmp_dir.to_string())==0);
 }

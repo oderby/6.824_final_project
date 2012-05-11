@@ -41,8 +41,6 @@ lock_client_cache::lock_client_cache(std::string xdst,
 
     family = ifa->ifa_addr->sa_family;
 
-    /* For an AF_INET* interface address, display the address */
-
     if (family == AF_INET && !(ifa->ifa_flags&IFF_LOOPBACK)) {
       s = getnameinfo(ifa->ifa_addr,
                       sizeof(struct sockaddr_in),
@@ -188,6 +186,10 @@ lock_client_cache::lock_acquired(lock_protocol::lockid_t lid)
       //replace extent contents of old file with server extent contents
       //resolve conflicts!
       VERIFY(0);
+      lock_protocol::lockid_t new_lid;
+      //assuming that you have the lock for the new file at this point
+      VERIFY(acquire_wo(2)==0);
+      lu->make_copy(lid, new_lid, 2);
     }
   }
   lock_status_[lid].state = lock_protocol::LOCKED;

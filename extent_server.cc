@@ -14,7 +14,8 @@ extent_server::extent_server()
 }
 
 
-int extent_server::put(extent_protocol::extentid_t id,unsigned int version, std::string buf, int &r)
+int extent_server::put(extent_protocol::extentid_t id,
+                       extent_protocol::attr attr, std::string buf, int &r)
 {
   printf("extent_server: received put request of %llu %s\n",id, buf.c_str());
   extent_server::finfo f;
@@ -24,22 +25,22 @@ int extent_server::put(extent_protocol::extentid_t id,unsigned int version, std:
   f.a.ctime = seconds;
   f.a.mtime = seconds;
   f.a.size = buf.size()*sizeof(char);
-
+  f.a.name = attr.name;
 
   VERIFY(pthread_mutex_lock(&m_)==0);
 
   //if entry exists...
   if (table_.find(id)!=table_.end()) {
-    printf("current: %d - client: %d\n",table_[id].a.version,version);
-    VERIFY(version == table_[id].a.version);
-    f.a.version = version+1;
+    printf("current: %d - client: %d\n",table_[id].a.version,attr.version);
+    VERIFY(attr.version == table_[id].a.version);
+    f.a.version = attr.version+1;
   }
 
   //else creating new file. set to version 1
   else {
     f.a.version = 1;
   }
-    
+
   table_[id] = f;
   VERIFY(pthread_mutex_unlock(&m_)==0);
   r = extent_protocol::OK;
@@ -80,6 +81,7 @@ int extent_server::getattr(extent_protocol::extentid_t id, extent_protocol::attr
   a.mtime = f.a.mtime;
   a.ctime = f.a.ctime;
   a.version = f.a.version;
+  a.name = f.a.name;
   VERIFY(pthread_mutex_unlock(&m_)==0);
   return extent_protocol::OK;
 }

@@ -30,6 +30,8 @@ class extent_client_cache : public extent_client {
 				  extent_protocol::attr &a);
   extent_protocol::status put(extent_protocol::extentid_t eid, std::string buf);
   extent_protocol::status remove(extent_protocol::extentid_t eid);
+  extent_protocol::status rename(extent_protocol::extentid_t eid,
+                                 std::string name);
   extent_protocol::status flush(extent_protocol::extentid_t eid);
   bool exists(extent_protocol::extentid_t);
   bool is_dirty(extent_protocol::extentid_t);
@@ -47,6 +49,8 @@ class extent_user: public lock_release_user {
   bool isdirty(lock_protocol::lockid_t);
   void remove(lock_protocol::lockid_t);
   bool compareversion(lock_protocol::lockid_t);
+  void make_copy(lock_protocol::lockid_t, lock_protocol::lockid_t,
+                 lock_protocol::lockid_t);
 };
 
 #endif

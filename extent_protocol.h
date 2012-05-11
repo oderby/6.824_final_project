@@ -23,6 +23,7 @@ class extent_protocol {
     unsigned int ctime;
     unsigned int size;
     unsigned int version;
+    std::string name;
   };
 };
 
@@ -34,6 +35,7 @@ operator>>(unmarshall &u, extent_protocol::attr &a)
   u >> a.ctime;
   u >> a.size;
   u >> a.version;
+  u >> a.name;
   return u;
 }
 
@@ -45,7 +47,8 @@ operator<<(marshall &m, extent_protocol::attr a)
   m << a.ctime;
   m << a.size;
   m << a.version;
+  m << a.name;
   return m;
 }
 
-#endif 
+#endif

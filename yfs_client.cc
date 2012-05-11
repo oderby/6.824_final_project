@@ -18,11 +18,15 @@ yfs_client::yfs_client(std::string extent_dst, std::string lock_dst)
   lc = new lock_client_cache(lock_dst, eu);
 
   // "create" root directory with inum 0x1
-  yfs_dir dir(":");//new yfs_dir(". 1:.. 1:");
+  yfs_dir dir("tmp 2:");//new yfs_dir(". 1:.. 1:");
   ScopedRemoteLock fl(lc, 1);
   std::string root_dir;
   if (ec->get(1, root_dir) == extent_protocol::NOENT) {
+    ScopedRemoteLock fl(lc, 2);
     ec->put(1, dir.to_string());
+    // create tmp dir
+    yfs_dir tmp_dir(":");
+    ec->put(2, tmp_dir.to_string());
   }
 }
 
@@ -166,12 +170,15 @@ yfs_client::create(inum p_ino, const char* name, inum& new_ino)
   // create empty extent for new file
   ret = ext2yfs(ec->put(new_ino, ""));
   if (ret == OK) {
-    // add new file to parent directory
-    p_dir.add(d);
-    ret = ext2yfs(ec->put(p_ino, p_dir.to_string()));
-    if (ret != OK) {
-      //try to remove the file extent if we failed to update the parent
-      ec->remove(new_ino);
+    ret = ext2yfs(ec->rename(new_ino, d.name));
+    if (ret == OK) {
+      // add new file to parent directory
+      p_dir.add(d);
+      ret = ext2yfs(ec->put(p_ino, p_dir.to_string()));
+      if (ret != OK) {
+        //try to remove the file extent if we failed to update the parent
+        ec->remove(new_ino);
+      }
     }
   }
   lc->release((lock_protocol::lockid_t) new_ino);
@@ -419,12 +426,8 @@ yfs_client::write(inum ino, const char * buf, unsigned int off, unsigned int siz
 
   // send the new data back to disk
   ret = ext2yfs(ec->put(ino, new_data));
-  if (ret != OK) {
-    lc->release(ino);
-    return ret;
-  }
   lc->release(ino);
-  return OK;
+  return ret;
 }
 
 // parse string of directory content
