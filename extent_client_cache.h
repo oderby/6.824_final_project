@@ -36,6 +36,7 @@ class extent_client_cache : public extent_client {
   bool exists(extent_protocol::extentid_t);
   bool is_dirty(extent_protocol::extentid_t);
   bool compare_version(extent_protocol::extentid_t);
+  bool remote_exists(extent_protocol::extentid_t);
 };
 
 
@@ -51,6 +52,7 @@ class extent_user: public lock_release_user {
   bool compareversion(lock_protocol::lockid_t);
   void make_copy(lock_protocol::lockid_t, lock_protocol::lockid_t,
                  lock_protocol::lockid_t);
+  bool remote_exists(lock_protocol::lockid_t);
 };
 
 #endif
