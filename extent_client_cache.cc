@@ -162,6 +162,13 @@ extent_client_cache::compare_version(extent_protocol::extentid_t eid)
   return ee.attr.version == local_extent_[eid].attr.version;
 }
 
+bool
+extent_client_cache::remote_exists(extent_protocol::extentid_t eid)
+{
+  std::string buf;
+  return get(eid,buf)==extent_protocol::NOENT;
+}
+
 extent_user::extent_user(extent_client_cache* ec):
     ec_(ec)
 {}
@@ -194,4 +201,10 @@ bool
 extent_user::compareversion(lock_protocol::lockid_t lid)
 {
   return ec_->compare_version((extent_protocol::extentid_t) lid);
+}
+
+bool
+extent_user::remote_exists(lock_protocol::lockid_t lid)
+{
+  return ec_->remote_exists((extent_protocol::extentid_t) lid);  
 }

@@ -20,6 +20,7 @@ class lock_release_user {
   virtual bool isdirty(lock_protocol::lockid_t) = 0;
   virtual void remove(lock_protocol::lockid_t) = 0;
   virtual bool compareversion(lock_protocol::lockid_t) = 0;
+  virtual bool remote_exists(lock_protocol::lockid_t) = 0;
   virtual ~lock_release_user() {};
 };
 
@@ -60,6 +61,7 @@ class lock_client_cache : public lock_client {
   rlock_protocol::status retry_handler(lock_protocol::lockid_t,
                                        int &);
   lock_test_protocol::status disconnect(bool, int &);
+  lock_protocol::lockid_t get_rand_num();
 };
 
 struct lock_rls_info {

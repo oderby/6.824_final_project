@@ -182,6 +182,19 @@ lock_client_cache::lock_acquired(lock_protocol::lockid_t lid)
     } else if (lu->compareversion(lid)) {
       lock_status_[lid].stale = false;
     } else {
+
+      lock_protocol::lockid_t lid;
+      
+      while (true) {
+	lid = get_rand_num() | 0x8000000;
+	acquire(lid);
+	if (!lu->remote_exists(lid)) {
+	  break;
+	}
+	release(lid);
+      }
+      
+      
       //TODO
       //create new file with same contents as local conflicting file
       //flush new file
@@ -378,4 +391,10 @@ lock_client_cache::disconnect_server()
   lock_test_protocol::status ret = lock_test_protocol::OK;
   VERIFY(cl->call(lock_test_protocol::disconnect_server,id,ret)==lock_test_protocol::OK);
   return lock_test_protocol::OK;
+}
+
+lock_protocol::lockid_t
+lock_client_cache::get_rand_num(void)
+{
+  return (rand()<<16|rand()) & 0xFFFF;
 }
