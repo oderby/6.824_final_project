@@ -78,9 +78,12 @@ yfs_client::getfile(inum ino, fileinfo &fin)
   // You modify this function for Lab 3
   // - hold and release the file lock
 
+
   lc->acquire(ino);
-  return getfile_helper(ino, fin);
+  int r = getfile_helper(ino, fin);
   lc->release(ino);
+  return r;
+
 }
 
 int
