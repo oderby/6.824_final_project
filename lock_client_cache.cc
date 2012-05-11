@@ -171,36 +171,37 @@ lock_client_cache::lock_acquired(lock_protocol::lockid_t lid)
     //just use our own extent (we have most recent changes)
     //Else, write/write conflict present, and we must merge!
     if (!lu->exists(lid)) {
+      tprintf("lock_client_cache::lock_acquired: stale lock, but we don't have the extent!\n");
       lock_status_[lid].stale = false;
     } else if (!lu->isdirty(lid)) {
+      tprintf("lock_client_cache::lock_acquired: stale lock, but we don't have a dirty extent!\n");
       lock_status_[lid].stale = false;
       lu->remove(lid);
       //TODO
       //should we force a get from server here?
     } else if (lu->compareversion(lid)) {
+      tprintf("lock_client_cache::lock_acquired: stale lock, but have latest version!\n");
       lock_status_[lid].stale = false;
     } else {
-
-      lock_protocol::lockid_t lid;
-      
+      tprintf("lock_client_cache::lock_acquired: stale lock, conflict exists!\n");
+      lock_protocol::lockid_t new_lid;
       while (true) {
-	lid = get_rand_num() | 0x8000000;
-	acquire(lid);
-	if (!lu->remote_exists(lid)) {
+	new_lid = get_rand_num() | 0x8000000;
+	acquire_wo(new_lid);
+	if (!lu->remote_exists(new_lid)) {
 	  break;
 	}
-	release(lid);
+	release_wo(new_lid);
       }
-      
-      
+
+      tprintf("lock_client_cache::lock_acquired: stale lock, creating temp file with inum %llu!\n",
+              new_lid);
+
       //TODO
       //create new file with same contents as local conflicting file
       //flush new file
       //replace extent contents of old file with server extent contents
       //resolve conflicts!
-      VERIFY(0);
-      lock_protocol::lockid_t new_lid;
-      //assuming that you have the lock for the new file at this point
       VERIFY(acquire_wo(2)==0);
       lu->make_copy(lid, new_lid, 2);
     }

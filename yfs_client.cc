@@ -27,9 +27,9 @@ yfs_client::yfs_client(std::string extent_dst, std::string lock_dst)
     // create tmp dir
     yfs_dir tmp_dir(":");
     ec->put(2, tmp_dir.to_string());
+    lc->release(2);
   }
   lc->release(1);
-  lc->release(2);
 }
 
 yfs_client::inum
