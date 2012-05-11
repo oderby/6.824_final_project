@@ -67,7 +67,7 @@ extent_client_cache::getattr(extent_protocol::extentid_t eid,
     VERIFY(ret == extent_protocol::OK);
   }
   attr = local_extent_[eid].attr;
-  printf("version on getattr: %d\n",attr.version);
+  printf("version on getattr: %d with name %s\n",attr.version, attr.name.c_str());
   return extent_protocol::OK;
 }
 
@@ -76,6 +76,7 @@ extent_client_cache::rename(extent_protocol::extentid_t eid,
                             std::string name)
 {
   ScopedLock ml(&m_);
+  printf("extent_client_cache::rename called for %llu\n",eid);
   if(local_extent_.count(eid)==0) {
     extent_protocol::status ret = extent_protocol::OK;
     if ((ret = get_helper(eid)) == extent_protocol::NOENT) {
@@ -84,6 +85,8 @@ extent_client_cache::rename(extent_protocol::extentid_t eid,
     VERIFY(ret == extent_protocol::OK);
   }
   local_extent_[eid].attr.name = name;
+  printf("extent_client_cache::rename naming %llu -> %s\n",eid,
+         local_extent_[eid].attr.name.c_str());
   return extent_protocol::OK;
 }
 extent_protocol::status
@@ -102,6 +105,7 @@ extent_client_cache::put(extent_protocol::extentid_t eid, std::string buf)
     ee.attr.version = 0;
   } else {
     ee.attr.version = local_extent_[eid].attr.version;
+    ee.attr.name = local_extent_[eid].attr.name;
   }
 
 
@@ -137,7 +141,7 @@ extent_client_cache::flush(extent_protocol::extentid_t eid)
   if (local_extent_[eid].dirty) {
     printf("extent_client_cache: flush: %llu has been modified, putting %s on server\n"
            ,eid, local_extent_[eid].extent.c_str());
-    VERIFY(cl->call(extent_protocol::put, eid,local_extent_[eid].attr,
+    VERIFY(cl->call(extent_protocol::put, eid, local_extent_[eid].attr,
                     local_extent_[eid].extent, r)==extent_protocol::OK);
   }
   VERIFY(local_extent_.erase(eid)==1);
@@ -182,7 +186,7 @@ bool
 extent_client_cache::remote_exists(extent_protocol::extentid_t eid)
 {
   std::string buf;
-  return get(eid,buf)==extent_protocol::NOENT;
+  return get(eid,buf)!=extent_protocol::NOENT;
 }
 
 extent_user::extent_user(extent_client_cache* ec):
@@ -233,18 +237,23 @@ extent_user::make_copy(lock_protocol::lockid_t lid,
   std::string tmp_dir_str;
   VERIFY(ec_->get((extent_protocol::extentid_t) tmp_lid, tmp_dir_str)==0);
   yfs_dir tmp_dir(tmp_dir_str);
-
-  std::string name = a.name;
+  printf("extent_client_cache::make_copy making copy of file %s\n",
+         a.name.c_str());
   int i = 1;
+  std::string name = a.name;
   while(tmp_dir.exists(name)) {
     std::ostringstream ost;
-    ost << name << "." << i;
-    name = ost.str();
+    ost << i;
+    name = a.name;
+    name += ".";
+    name += ost.str();
     i++;
   }
   yfs_client::dirent d;
   d.name = name;
   d.inum = (yfs_client::inum) new_lid;
+  printf("extent_client_cache::make_copy making copy with name %s\n",
+         d.name.c_str());
   tmp_dir.add(d);
   VERIFY(ec_->rename((extent_protocol::extentid_t) new_lid, d.name)==0);
   VERIFY(ec_->put((extent_protocol::extentid_t) tmp_lid, tmp_dir.to_string())==0);

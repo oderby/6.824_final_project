@@ -172,21 +172,18 @@ lock_client_cache::lock_acquired(lock_protocol::lockid_t lid)
     //Else, write/write conflict present, and we must merge!
     if (!lu->exists(lid)) {
       tprintf("lock_client_cache::lock_acquired: stale lock, but we don't have the extent!\n");
-      lock_status_[lid].stale = false;
     } else if (!lu->isdirty(lid)) {
       tprintf("lock_client_cache::lock_acquired: stale lock, but we don't have a dirty extent!\n");
-      lock_status_[lid].stale = false;
       lu->remove(lid);
       //TODO
       //should we force a get from server here?
     } else if (lu->compareversion(lid)) {
       tprintf("lock_client_cache::lock_acquired: stale lock, but have latest version!\n");
-      lock_status_[lid].stale = false;
     } else {
       tprintf("lock_client_cache::lock_acquired: stale lock, conflict exists!\n");
       lock_protocol::lockid_t new_lid;
       while (true) {
-	new_lid = get_rand_num() | 0x8000000;
+	new_lid = get_rand_num() | 0x80000000;
 	acquire_wo(new_lid);
 	if (!lu->remote_exists(new_lid)) {
 	  break;
@@ -204,7 +201,11 @@ lock_client_cache::lock_acquired(lock_protocol::lockid_t lid)
       //resolve conflicts!
       VERIFY(acquire_wo(2)==0);
       lu->make_copy(lid, new_lid, 2);
+      lu->remove(lid);
+      VERIFY(release_wo(2)==0);
+      VERIFY(release_wo(new_lid)==0);
     }
+    lock_status_[lid].stale = false;
   }
   lock_status_[lid].state = lock_protocol::LOCKED;
 }
@@ -366,6 +367,16 @@ lock_client_cache::disconnect(bool kill, int &r)
       }
       VERIFY(pthread_cond_signal(&wait_retry_)==0);
     } else {
+      for (i = lock_status_.begin(); i!=lock_status_.end(); i++) {
+        lock_protocol::state lis = i->second.state;
+        VERIFY(lis != lock_protocol::FREE_RLS);
+        VERIFY(lis != lock_protocol::RELEASING);
+        VERIFY(lis != lock_protocol::WAITING);
+        VERIFY(lis != lock_protocol::ACQUIRING);
+        if (lis != lock_protocol::NONE) {
+          lock_status_[i->first].stale = true;
+        }
+      }
       disconnected = false;
       //TODO: On reconnect: Any locks not in state NONE, try to reacquire
       for (i = lock_status_.begin(); i!=lock_status_.end(); i++) {
@@ -376,7 +387,6 @@ lock_client_cache::disconnect(bool kill, int &r)
         VERIFY(lis != lock_protocol::ACQUIRING);
 	printf("Reconnecting. Lock %llu with state %d\n",i->first,lis);
         if (lis != lock_protocol::NONE) {
-          lock_status_[i->first].stale = true;
           VERIFY(acquire_wo(i->first)==lock_protocol::OK);
           VERIFY(release_wo(i->first)==lock_protocol::OK);
         }

@@ -17,7 +17,8 @@ extent_server::extent_server()
 int extent_server::put(extent_protocol::extentid_t id,
                        extent_protocol::attr attr, std::string buf, int &r)
 {
-  printf("extent_server: received put request of %llu %s\n",id, buf.c_str());
+  printf("extent_server: received put request of %llu:%d:%s with %s\n", id,
+         attr.version, attr.name.c_str(), buf.c_str());
   extent_server::finfo f;
   f.buf = buf;
   time_t seconds;

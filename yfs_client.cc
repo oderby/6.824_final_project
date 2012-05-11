@@ -83,7 +83,10 @@ yfs_client::getfile(inum ino, fileinfo &fin)
   // - hold and release the file lock
 
 
-  lc->acquire(ino);
+  if (lc->acquire(ino)==lock_protocol::DISCONNECTED) {
+    return yfs_client::DISCONNECTED;
+  }
+
   int r = getfile_helper(ino, fin);
   lc->release(ino);
   return r;
@@ -113,7 +116,10 @@ yfs_client::getdir(inum inum, dirinfo &din)
 {
   printf("getdir %s\n", yfs_client::filename(inum).c_str());
   extent_protocol::attr a;
-  lc->acquire(inum);
+  if (lc->acquire(inum)==lock_protocol::DISCONNECTED) {
+    return yfs_client::DISCONNECTED;
+  }
+
   status ret = ext2yfs(ec->getattr(inum, a));
 
   if (ret == OK) {
@@ -177,7 +183,7 @@ yfs_client::create(inum p_ino, const char* name, inum& new_ino)
   // create empty extent for new file
   ret = ext2yfs(ec->put(new_ino, ""));
   if (ret == OK) {
-    ret = ext2yfs(ec->rename(new_ino, d.name));
+    ret = ext2yfs(ec->rename(new_ino, std::string(name)));
     if (ret == OK) {
       // add new file to parent directory
       p_dir.add(d);
