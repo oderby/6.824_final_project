@@ -1,0 +1,24 @@
+Disconnected Operation: Extending YFS to handle network disconnectivity and conflict resolution
+
+Problem Statement
+Yet-Another-Filesystem (YFS) is a distributed filesystem that allows clients across a network to modify the same filesystem. However, YFS is restrictive; it does not allow clients to modify the filesystem while disconnected from the extent and lock servers. To solve this problem, we have extended YFS with a file versioning system for conflict detection, client-side conflict resolution, and stale locking.
+
+File Versioning System for Conflict Detection::
+Maintain a totally ordered version number for every file in the filesystem. Increment the version number following every modification made to that file. When a client modifies an extent, it tells the extent server the version of the file that it has. If the client's version is not the extent's version, then the extent server will reject the client's modification and report the conflict back to the client.
+
+Conflict Resolution:
+Conflict resolution is performed entirely on the client-side. When a conflict is detected, the client will save its current version of the file as a temporary file and recover the most recent version from the extent server. Resolution between conflicting extents is done manually by the user application.
+
+Stale Locking:
+To handle the case when clients disconnect while holding locks, we implemented stale locking. A lock is stale when the client doesn't know whether or not it holds the lock. A disconnected client marks all of its locks as stale upon reconnecting to YFS. This forces the client to resolve all of its locks with the lock server.
+
+Upon reacquiring a lock from the lock server that was perviously stale, a client needs to resolve conflicts for the corresponding extent. This is done using the file versioning system as described above.
+
+Example: The Simple Case
+Assume a system of two YFS Clients, C1 and C2, a lock server, LS, and an extent server, ES. Both clients are connected; C1 holds a lock L1 corresponding to extent E1.
+
+Client C1 disonnects. The LS detects the C1 is disconnected and frees lock L1. C2 acquires the lock and modifies E1. 
+
+C1 reconnects, marks its local copy of L1 as stale, and resolves L1 by attempting to acquire L1  with LS. LS revokes lock L1 from C2 and tells C1 to retry. C1 reacquires L1 from LS and attempts to resolve its version of E1 with ES. ES detects a conflict and reports back to C1. C1 resolves the conflict by creating a temporary file E1t and fetching the most recent version of E1 from ES. 
+
+YFS is restrictive in that it does not allow clients to modify the filesystem while disconnected. By adding a file versioning system, client-side conflict resolution, and stale locking, we have extended YFS so that clients can modify extents while in a disconnected state. File versioning allows for the detection of conflicts between extents. Clients handle conflict resolution by creating a temporary file with the conflicting copy of the extent, and giving the user application the respondibiliity for merging conflicts. Stale locking enabled clients to modify extents while disconnected and resolve the extents upon reconnection. 
